@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/main/schemas/journium-insight-tracker.v1.schema.json
+apiVersion: journium.io/v1
+kind: InsightTracker
+metadata:
+  name: signup-to-first-habit
+  displayName: Signup to First Habit Dropoff
+spec:
+  type: funnel
+  entity: person_id
+  window:
+    lookback: 7d
+
+  steps:
+    - id: signup
+      match:
+        event: signup_completed
+    - id: habit_created
+      match:
+        event: habit_created
+
+  output:
+    card:
+      title: "Users dropping before first habit"
+      primaryMetric: dropoff_rate
