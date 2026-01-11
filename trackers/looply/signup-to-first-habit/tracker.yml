@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/main/schemas/journium-insight-tracker.v1.schema.json
+# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.v1.schema.json
 apiVersion: journium.io/v1
 kind: InsightTracker
 metadata:

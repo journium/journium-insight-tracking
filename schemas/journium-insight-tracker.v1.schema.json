@@ -8,7 +8,7 @@
     "properties": {
       "apiVersion": {
         "type": "string",
-        "enum": ["journium.io/v1"]
+        "enum": ["journium.io/beta", "journium.io/v1"]
       },
       "kind": {
         "type": "string",
