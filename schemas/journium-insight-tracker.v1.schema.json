@@ -1,0 +1,154 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://journium.app/schemas/journium-insight-tracker.v1.schema.json",
+    "type": "object",
+    "required": ["apiVersion", "kind", "metadata", "spec"],
+    "additionalProperties": false,
+  
+    "properties": {
+      "apiVersion": {
+        "type": "string",
+        "enum": ["journium.io/v1"]
+      },
+      "kind": {
+        "type": "string",
+        "enum": ["InsightTracker"]
+      },
+  
+      "metadata": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+  
+      "spec": {
+        "type": "object",
+        "required": ["type", "window"],
+        "additionalProperties": false,
+  
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["funnel", "retention", "anomaly", "segmentation"]
+          },
+  
+          "window": {
+            "type": "object",
+            "required": ["lookback"],
+            "additionalProperties": false,
+            "properties": {
+              "lookback": {
+                "type": "string",
+                "pattern": "^[0-9]+(d|h)$"
+              },
+              "granularity": {
+                "type": "string",
+                "enum": ["hour", "day"]
+              }
+            }
+          },
+  
+          "schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cron": { "type": "string" },
+              "timezone": { "type": "string" }
+            }
+          },
+  
+          "entity": {
+            "type": "string",
+            "enum": ["person_id"]
+          },
+  
+          "steps": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/step" },
+            "minItems": 2
+          },
+  
+          "event": { "$ref": "#/$defs/eventSelector" },
+  
+          "groupBy": {
+            "type": "string",
+            "description": "e.g. properties.plan, properties.habit_type"
+          },
+  
+          "threshold": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "when": { "type": "string" },
+              "severity": {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              }
+            }
+          },
+  
+          "output": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "card": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "title": { "type": "string" },
+                  "primaryMetric": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+  
+    "$defs": {
+      "step": {
+        "type": "object",
+        "required": ["id", "match"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "match": { "$ref": "#/$defs/eventSelector" }
+        }
+      },
+  
+      "eventSelector": {
+        "type": "object",
+        "required": ["event"],
+        "additionalProperties": false,
+        "properties": {
+          "event": { "type": "string" },
+          "where": { "$ref": "#/$defs/where" }
+        }
+      },
+  
+      "where": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "eq": {},
+            "neq": {},
+            "in": { "type": "array" },
+            "gt": { "type": "number" },
+            "lt": { "type": "number" }
+          }
+        }
+      }
+    }
+  }
+  
