@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.v1.schema.json
-apiVersion: journium.io/v1
+apiVersion: journium.io/beta
 kind: InsightTracker
 metadata:
   name: signup-to-first-habit

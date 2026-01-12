@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.v1.schema.json
+apiVersion: journium.io/beta
+kind: InsightTracker
+metadata:
+  name: onboarding-completion
+spec:
+  type: funnel
+  window:
+    lookback: 7d
+
+  steps:
+    - id: start
+      match:
+        event: onboarding_started
+    - id: complete
+      match:
+        event: onboarding_completed
