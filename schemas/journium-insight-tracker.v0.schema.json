@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://journium.io/schemas/journium-insight-tracker.v0.schema.json",
+  "title": "Journium InsightTracker",
+  "description": "Schema for defining a Journium InsightTracker resource (Analytics as Code).",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "journium.io/v0",
+      "description": "API version of this resource. Must be 'journium.io/v0'."
+    },
+    "kind": {
+      "type": "string",
+      "const": "InsightTracker",
+      "description": "Resource kind. Must be 'InsightTracker'."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Standard resource metadata (name, display name, labels, etc.).",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for this tracker. Use kebab-case (e.g., 'signup-to-first-habit').",
+          "minLength": 3,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Human-friendly name shown in the Journium UI (e.g., 'Signup to First Habit Dropoff').",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "description": "Tracker specification: defines how this insight tracker is evaluated and produced.",
+      "required": ["type", "trigger"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["LLM", "funnel"],
+          "description": "Tracker implementation type. Supported: 'LLM', 'funnel'."
+        },
+        "llmPrompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "LLM prompt used to generate the insight. Required when spec.type is 'LLM'."
+        },
+        "trigger": {
+          "$ref": "#/$defs/trigger",
+          "description": "Controls when the tracker runs."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "LLM" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["llmPrompt"]
+          }
+        }
+      ]
+    }
+  },
+
+  "$defs": {
+    "trigger": {
+      "type": "object",
+      "description": "Controls when the tracker runs.",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["automatic", "manual"],
+          "description": "If 'automatic', Journium runs this tracker on a schedule. If 'manual', it only runs when explicitly triggered."
+        },
+        "schedule": {
+          "description": "Required when mode is 'automatic'. Either a preset cadence or a cron schedule.",
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["hourly", "daily", "weekly", "monthly"],
+              "description": "Preset schedule cadence."
+            },
+            {
+              "type": "object",
+              "description": "Cron-based schedule.",
+              "additionalProperties": false,
+              "required": ["cron"],
+              "properties": {
+                "cron": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Cron expression (format/validation is handled by Journium at runtime)."
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "automatic" } },
+            "required": ["mode"]
+          },
+          "then": { "required": ["schedule"] }
+        }
+      ]
+    }
+  }
+}
