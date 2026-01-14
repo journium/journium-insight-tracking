@@ -4,6 +4,7 @@ kind: InsightTracker
 metadata:
   name: signup-to-first-habit
   displayName: Signup to First Habit Dropoff
+  description: This tracker generates an insight based on the signup to first habit dropoff event.
 spec:
   # The type of tracker.
   type: LLM

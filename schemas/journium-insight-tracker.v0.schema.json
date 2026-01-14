@@ -4,7 +4,7 @@
   "title": "Journium InsightTracker",
   "description": "Schema for defining a Journium InsightTracker resource (Analytics as Code).",
   "type": "object",
-  "required": ["apiVersion", "kind", "metadata"],
+  "required": ["apiVersion", "kind", "metadata", "spec"],
   "additionalProperties": false,
   "properties": {
     "apiVersion": {
@@ -20,7 +20,7 @@
     "metadata": {
       "type": "object",
       "description": "Standard resource metadata (name, display name, labels, etc.).",
-      "required": ["name"],
+      "required": ["name", "displayName"],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -35,44 +35,23 @@
           "description": "Human-friendly name shown in the Journium UI (e.g., 'Signup to First Habit Dropoff').",
           "minLength": 1,
           "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the tracker. This is used to describe the tracker in the Journium UI.",
+          "minLength": 1,
+          "maxLength": 1000
         }
       }
     },
     "spec": {
-      "type": "object",
       "description": "Tracker specification: defines how this insight tracker is evaluated and produced.",
-      "required": ["type", "trigger"],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["LLM", "funnel"],
-          "description": "Tracker implementation type. Supported: 'LLM', 'funnel'."
-        },
-        "llmPrompt": {
-          "type": "string",
-          "minLength": 1,
-          "description": "LLM prompt used to generate the insight. Required when spec.type is 'LLM'."
-        },
-        "trigger": {
-          "$ref": "#/$defs/trigger",
-          "description": "Controls when the tracker runs."
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "type": { "const": "LLM" } },
-            "required": ["type"]
-          },
-          "then": {
-            "required": ["llmPrompt"]
-          }
-        }
+      "oneOf": [
+        { "$ref": "#/$defs/LLMSpec" },
+        { "$ref": "#/$defs/FunnelSpec" }
       ]
     }
   },
-
   "$defs": {
     "trigger": {
       "type": "object",
@@ -118,6 +97,47 @@
           "then": { "required": ["schedule"] }
         }
       ]
+    },
+
+    "LLMSpec": {
+      "type": "object",
+      "description": "LLM-based insight tracker spec.",
+      "required": ["type", "trigger", "llmPrompt"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "LLM",
+          "description": "Spec type discriminator. Must be 'LLM'."
+        },
+        "trigger": {
+          "$ref": "#/$defs/trigger",
+          "description": "Controls when the tracker runs."
+        },
+        "llmPrompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "LLM prompt used to generate the insight."
+        }
+      }
+    },
+
+    "FunnelSpec": {
+      "type": "object",
+      "description": "Funnel-based insight tracker spec.",
+      "required": ["type", "trigger"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "funnel",
+          "description": "Spec type discriminator. Must be 'funnel'."
+        },
+        "trigger": {
+          "$ref": "#/$defs/trigger",
+          "description": "Controls when the tracker runs."
+        }
+      }
     }
   }
 }
