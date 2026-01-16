@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://journium.io/schemas/journium-insight-tracker.v0.schema.json",
+  "$id": "https://journium.io/schemas/journium-insight-tracker.v0Alpha.schema.json",
   "title": "Journium InsightTracker",
   "description": "Schema for defining a Journium InsightTracker resource (Analytics as Code).",
   "type": "object",
@@ -9,8 +9,8 @@
   "properties": {
     "apiVersion": {
       "type": "string",
-      "const": "journium.io/v0",
-      "description": "API version of this resource. Must be 'journium.io/v0'."
+      "const": "journium.io/v0Alpha",
+      "description": "API version of this resource. Must be 'journium.io/v0Alpha'."
     },
     "kind": {
       "type": "string",
@@ -46,10 +46,7 @@
     },
     "spec": {
       "description": "Tracker specification: defines how this insight tracker is evaluated and produced.",
-      "oneOf": [
-        { "$ref": "#/$defs/LLMSpec" },
-        { "$ref": "#/$defs/FunnelSpec" }
-      ]
+      "oneOf": [{ "$ref": "#/$defs/LLMSpec" }, { "$ref": "#/$defs/FunnelSpec" }]
     }
   },
   "$defs": {
@@ -102,7 +99,7 @@
     "LLMSpec": {
       "type": "object",
       "description": "LLM-based insight tracker spec.",
-      "required": ["type", "trigger", "llmPrompt"],
+      "required": ["type", "trigger", "llmPrompt", "data"],
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -118,6 +115,10 @@
           "type": "string",
           "minLength": 1,
           "description": "LLM prompt used to generate the insight."
+        },
+        "data": {
+          "$ref": "#/$defs/dataSpec",
+          "description": "Event data selection and limits."
         }
       }
     },
@@ -125,7 +126,7 @@
     "FunnelSpec": {
       "type": "object",
       "description": "Funnel-based insight tracker spec.",
-      "required": ["type", "trigger"],
+      "required": ["type", "trigger", "data"],
       "additionalProperties": false,
       "properties": {
         "type": {
@@ -136,6 +137,49 @@
         "trigger": {
           "$ref": "#/$defs/trigger",
           "description": "Controls when the tracker runs."
+        },
+        "data": {
+          "$ref": "#/$defs/dataSpec",
+          "description": "Event data selection and limits."
+        }
+      }
+    },
+
+    "dataSpec": {
+      "type": "object",
+      "description": "Controls what event data is available to the tracker.",
+      "additionalProperties": false,
+      "properties": {
+        "minEvents": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional minimum number of events required to run the tracker."
+        },
+        "maxEvents": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional maximum number of events to consider. If omitted, the execution engine applies a reasonable default."
+        },
+        "events": {
+          "description": "Events to include. Use '*' for all events, or provide an explicit allowlist of event names.",
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "*",
+              "description": "Include all events."
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Event name (e.g., 'Signup', 'HabitCreated')."
+              },
+              "description": "Explicit allowlist of event names."
+            }
+          ]
         }
       }
     }

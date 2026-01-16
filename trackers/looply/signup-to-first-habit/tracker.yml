@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.v1.schema.json
+# yaml-language-server: $schema=../../../schemas/journium-insight-tracker.v1.schema.json
 apiVersion: journium.io/beta
 kind: InsightTracker
 metadata:
