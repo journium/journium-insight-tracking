@@ -16,7 +16,6 @@ spec:
     The insight should be a single sentence that summarizes the data.
     The insight should be in the following format:
     - **[Insight Title]**: [Insight Description]
-    - **[Insight Title]**: [Insight Description]
 
   # The trigger controls when the tracker runs.
   trigger:
