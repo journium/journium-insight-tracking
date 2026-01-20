@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://journium.app/schemas/journium-insight-tracker.schema.json",
+    "title": "Journium InsightTracker",
+    "type": "object",
+    "required": [
+        "apiVersion"
+    ],
+    "properties": {
+        "apiVersion": {
+            "type": "string",
+            "description": "The version of the Journium InsightTracker schema."
+        }
+    },
+    "oneOf": [
+        {
+            "properties": {
+                "apiVersion": {
+                    "const": "journium.app/v0Alpha"
+                }
+            },
+            "required": [
+                "apiVersion"
+            ],
+            "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Alpha.schema.json"
+        },
+        {
+            "properties": {
+                "apiVersion": {
+                    "const": "journium.app/v0Beta"
+                }
+            },
+            "required": [
+                "apiVersion"
+            ],
+            "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json"
+        }
+    ]
+}

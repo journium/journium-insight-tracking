@@ -1,0 +1,50 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://journium.app/schemas/insight-tracker.base.schema.json",
+    "type": "object",
+    "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+    ],
+    "properties": {
+        "apiVersion": {
+            "type": "string",
+            "description": "The version of the Journium InsightTracker schema."
+        },
+        "kind": {
+            "type": "string",
+            "const": "InsightTracker"
+        },
+        "metadata": {
+            "type": "object",
+            "required": [
+                "name",
+                "displayName"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 63,
+                    "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+                    "description": "Unique identifier for this tracker. Use kebab-case (e.g., 'signup-to-first-habit')."
+                },
+                "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Human-friendly name shown in the Journium UI (e.g., 'Signup to First Habit Dropoff')."
+                },
+                "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000,
+                    "description": "Description of the tracker. This is used to describe the tracker in the Journium UI."
+                }
+            }
+        }
+    }
+}

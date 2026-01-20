@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://journium.app/schemas/journium-insight-tracker.v0Alpha.schema.json",
+  "$id": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json",
   "title": "Journium InsightTracker",
   "allOf": [
     {
@@ -10,7 +10,7 @@
       "type": "object",
       "properties": {
         "apiVersion": {
-          "const": "journium.app/v0Alpha"
+          "const": "journium.app/v0Beta"
         },
         "spec": {
           "oneOf": [
