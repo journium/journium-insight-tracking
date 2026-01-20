@@ -26,171 +26,171 @@
       "required": [
         "apiVersion",
         "spec"
+      ]
+    }
+  ],
+  "$defs": {
+    "trigger": {
+      "type": "object",
+      "description": "Controls when the tracker runs.",
+      "required": [
+        "mode"
       ],
-      "$defs": {
-        "trigger": {
-          "type": "object",
-          "description": "Controls when the tracker runs.",
-          "required": [
-            "mode"
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "automatic",
+            "manual"
           ],
-          "additionalProperties": false,
-          "properties": {
-            "mode": {
+          "description": "If 'automatic', Journium runs this tracker on a schedule. If 'manual', it only runs when explicitly triggered."
+        },
+        "schedule": {
+          "description": "Required when mode is 'automatic'. Either a preset cadence or a cron schedule.",
+          "oneOf": [
+            {
               "type": "string",
               "enum": [
-                "automatic",
-                "manual"
+                "hourly",
+                "daily",
+                "weekly",
+                "monthly"
               ],
-              "description": "If 'automatic', Journium runs this tracker on a schedule. If 'manual', it only runs when explicitly triggered."
+              "description": "Preset schedule cadence."
             },
-            "schedule": {
-              "description": "Required when mode is 'automatic'. Either a preset cadence or a cron schedule.",
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "hourly",
-                    "daily",
-                    "weekly",
-                    "monthly"
-                  ],
-                  "description": "Preset schedule cadence."
-                },
-                {
-                  "type": "object",
-                  "description": "Cron-based schedule.",
-                  "additionalProperties": false,
-                  "required": [
-                    "cron"
-                  ],
-                  "properties": {
-                    "cron": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "Cron expression (format/validation is handled by Journium at runtime)."
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          "allOf": [
             {
-              "if": {
-                "properties": {
-                  "mode": {
-                    "const": "automatic"
-                  }
-                },
-                "required": [
-                  "mode"
-                ]
-              },
-              "then": {
-                "required": [
-                  "schedule"
-                ]
+              "type": "object",
+              "description": "Cron-based schedule.",
+              "additionalProperties": false,
+              "required": [
+                "cron"
+              ],
+              "properties": {
+                "cron": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Cron expression (format/validation is handled by Journium at runtime)."
+                }
               }
             }
           ]
-        },
-        "LLMSpec": {
-          "type": "object",
-          "description": "LLM-based insight tracker spec.",
-          "required": [
-            "type",
-            "trigger",
-            "llmPrompt",
-            "data"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "LLM",
-              "description": "Spec type discriminator. Must be 'LLM'."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "automatic"
+              }
             },
-            "trigger": {
-              "$ref": "#/$defs/trigger",
-              "description": "Controls when the tracker runs."
-            },
-            "llmPrompt": {
-              "type": "string",
-              "minLength": 1,
-              "description": "LLM prompt used to generate the insight."
-            },
-            "data": {
-              "$ref": "#/$defs/dataSpec",
-              "description": "Event data selection and limits."
-            }
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "schedule"
+            ]
           }
+        }
+      ]
+    },
+    "LLMSpec": {
+      "type": "object",
+      "description": "LLM-based insight tracker spec.",
+      "required": [
+        "type",
+        "trigger",
+        "llmPrompt",
+        "data"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "LLM",
+          "description": "Spec type discriminator. Must be 'LLM'."
         },
-        "FunnelSpec": {
-          "type": "object",
-          "description": "Funnel-based insight tracker spec.",
-          "required": [
-            "type",
-            "trigger",
-            "data"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "type": {
+        "trigger": {
+          "$ref": "#/$defs/trigger",
+          "description": "Controls when the tracker runs."
+        },
+        "llmPrompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "LLM prompt used to generate the insight."
+        },
+        "data": {
+          "$ref": "#/$defs/dataSpec",
+          "description": "Event data selection and limits."
+        }
+      }
+    },
+    "FunnelSpec": {
+      "type": "object",
+      "description": "Funnel-based insight tracker spec.",
+      "required": [
+        "type",
+        "trigger",
+        "data"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "funnel",
+          "description": "Spec type discriminator. Must be 'funnel'."
+        },
+        "trigger": {
+          "$ref": "#/$defs/trigger",
+          "description": "Controls when the tracker runs."
+        },
+        "data": {
+          "$ref": "#/$defs/dataSpec",
+          "description": "Event data selection and limits."
+        }
+      }
+    },
+    "dataSpec": {
+      "type": "object",
+      "description": "Controls what event data is available to the tracker.",
+      "additionalProperties": false,
+      "properties": {
+        "minEvents": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional minimum number of events required to run the tracker."
+        },
+        "maxEvents": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional maximum number of events to consider. If omitted, the execution engine applies a reasonable default."
+        },
+        "events": {
+          "description": "Events to include. Use '*' for all events, or provide an explicit allowlist of event names.",
+          "oneOf": [
+            {
               "type": "string",
-              "const": "funnel",
-              "description": "Spec type discriminator. Must be 'funnel'."
+              "const": "*",
+              "description": "Include all events."
             },
-            "trigger": {
-              "$ref": "#/$defs/trigger",
-              "description": "Controls when the tracker runs."
-            },
-            "data": {
-              "$ref": "#/$defs/dataSpec",
-              "description": "Event data selection and limits."
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Event name (e.g., 'Signup', 'HabitCreated')."
+              },
+              "description": "Explicit allowlist of event names."
             }
-          }
-        },
-        "dataSpec": {
-          "type": "object",
-          "description": "Controls what event data is available to the tracker.",
-          "additionalProperties": false,
-          "properties": {
-            "minEvents": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Optional minimum number of events required to run the tracker."
-            },
-            "maxEvents": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Optional maximum number of events to consider. If omitted, the execution engine applies a reasonable default."
-            },
-            "events": {
-              "description": "Events to include. Use '*' for all events, or provide an explicit allowlist of event names.",
-              "oneOf": [
-                {
-                  "type": "string",
-                  "const": "*",
-                  "description": "Include all events."
-                },
-                {
-                  "type": "array",
-                  "minItems": 1,
-                  "uniqueItems": true,
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "description": "Event name (e.g., 'Signup', 'HabitCreated')."
-                  },
-                  "description": "Explicit allowlist of event names."
-                }
-              ]
-            }
-          }
+          ]
         }
       }
     }
-  ],
+  },
   "unevaluatedProperties": false
 }
