@@ -109,6 +109,39 @@
             ]
           },
           "then": {
+            "type": "object",
+            "properties": {
+              "schedule": {
+                "description": "Required when mode is 'automatic'. Either a preset cadence or a cron schedule.",
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "hourly",
+                      "daily",
+                      "weekly",
+                      "monthly"
+                    ],
+                    "description": "Preset schedule cadence."
+                  },
+                  {
+                    "type": "object",
+                    "description": "Cron-based schedule.",
+                    "additionalProperties": false,
+                    "required": [
+                      "cron"
+                    ],
+                    "properties": {
+                      "cron": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Cron expression (format/validation is handled by Journium at runtime)."
+                      }
+                    }
+                  }
+                ]
+              }
+            },
             "required": [
               "schedule"
             ]
@@ -211,5 +244,6 @@
       }
     }
   },
+  "type": "object",
   "unevaluatedProperties": false
 }

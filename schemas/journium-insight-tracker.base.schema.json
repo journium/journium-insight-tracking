@@ -45,6 +45,9 @@
                     "description": "Description of the tracker. This is used to describe the tracker in the Journium UI."
                 }
             }
+        },
+        "spec": {
+            "description": "Tracker specification. Defined in version-specific schemas."
         }
     }
 }
