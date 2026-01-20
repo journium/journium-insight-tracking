@@ -4,7 +4,7 @@
   "title": "Journium InsightTracker",
   "allOf": [
     {
-      "$ref": "https://journium.app/schemas/insight-tracker.base.schema.json"
+      "$ref": "https://journium.app/schemas/journium-insight-tracker.base.schema.json"
     },
     {
       "type": "object",

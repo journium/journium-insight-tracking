@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://journium.app/schemas/insight-tracker.base.schema.json",
+    "$id": "https://journium.app/schemas/journium-insight-tracker.base.schema.json",
     "type": "object",
     "required": [
         "apiVersion",
