@@ -13,12 +13,26 @@
           "const": "journium.app/v0Alpha"
         },
         "spec": {
-          "oneOf": [
+          "description": "Tracker specification.",
+          "allOf": [
             {
-              "$ref": "#/$defs/LLMSpec"
+              "type": "object",
+              "properties": {
+                "type": {
+                  "$ref": "#/$defs/specType"
+                }
+              },
+              "required": ["type"]
             },
             {
-              "$ref": "#/$defs/FunnelSpec"
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/LLMSpec"
+                },
+                {
+                  "$ref": "#/$defs/FunnelSpec"
+                }
+              ]
             }
           ]
         }
@@ -30,6 +44,11 @@
     }
   ],
   "$defs": {
+    "specType": {
+      "type": "string",
+      "enum": ["LLM", "funnel"],
+      "description": "Spec type discriminator. Valid values: 'LLM' for LLM-based trackers, 'funnel' for funnel-based trackers."
+    },
     "trigger": {
       "type": "object",
       "description": "Controls when the tracker runs.",
@@ -111,7 +130,7 @@
         "type": {
           "type": "string",
           "const": "LLM",
-          "description": "Spec type discriminator. Must be 'LLM'."
+          "description": "Spec type discriminator. Must be 'LLM' for LLM-based trackers."
         },
         "trigger": {
           "$ref": "#/$defs/trigger",
@@ -141,7 +160,7 @@
         "type": {
           "type": "string",
           "const": "funnel",
-          "description": "Spec type discriminator. Must be 'funnel'."
+          "description": "Spec type discriminator. Must be 'funnel' for funnel-based trackers."
         },
         "trigger": {
           "$ref": "#/$defs/trigger",
