@@ -1,0 +1,27 @@
+apiVersion: journium.app/v0Alpha
+kind: InsightTracker
+metadata:
+  name: signup-to-first-habit
+  displayName: Signup to First Habit Dropoff
+  description: This tracker generates an insight based on the signup to first habit dropoff event.
+spec:
+  # The type of tracker.
+  type: LLM
+  # The LLM prompt used to generate the insight.
+  llmPrompt: |
+    You are a helpful assistant that generates insights based on the provided data.
+    The data is a list of events that have occurred in the system.
+    Generate an insight based on the data.
+    The insight should be a single sentence that summarizes the data.
+    The insight should be in the following format:
+    - **[Insight Title]**: [Insight Description]
+
+  # The trigger controls when the tracker runs.
+  trigger:
+    mode: automatic
+    schedule: daily
+  # The data controls what event data is available to the tracker.
+  data:
+      events: 
+        - signup_completed
+        - habit_created
