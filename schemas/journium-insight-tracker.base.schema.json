@@ -15,10 +15,12 @@
         },
         "kind": {
             "type": "string",
+            "description": "The type of the tracker. Must be 'InsightTracker' for Journium InsightTrackers.",
             "const": "InsightTracker"
         },
         "metadata": {
             "type": "object",
+            "description": "Metadata for the tracker. Must contain a name and displayName.",
             "required": [
                 "name",
                 "displayName"
