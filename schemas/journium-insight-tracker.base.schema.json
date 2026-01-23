@@ -30,7 +30,7 @@
                     "minLength": 3,
                     "maxLength": 63,
                     "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
-                    "description": "Unique identifier for this tracker. Use kebab-case (e.g., 'signup-to-first-habit')."
+                    "description": "Unique identifier for this tracker. Must be unique within the application. Use kebab-case (e.g., 'signup-to-first-habit'). Trackers may reference other trackers by name."
                 },
                 "displayName": {
                     "type": "string",
@@ -41,7 +41,7 @@
                 "description": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 1000,
+                    "maxLength": 200,
                     "description": "Description of the tracker. This is used to describe the tracker in the Journium UI."
                 }
             }
