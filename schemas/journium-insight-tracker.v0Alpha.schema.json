@@ -25,14 +25,7 @@
               "required": ["type"]
             },
             {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/LLMSpec"
-                },
-                {
-                  "$ref": "#/$defs/FunnelSpec"
-                }
-              ]
+              "$ref": "#/$defs/LLMSpec"
             }
           ]
         }
@@ -46,8 +39,8 @@
   "$defs": {
     "specType": {
       "type": "string",
-      "enum": ["LLM", "funnel"],
-      "description": "Spec type discriminator. Valid values: 'LLM' for LLM-based trackers, 'funnel' for funnel-based trackers."
+      "enum": ["LLM"],
+      "description": "Spec type discriminator. Valid value: 'LLM' for LLM-based trackers."
     },
     "trigger": {
       "type": "object",
@@ -181,31 +174,6 @@
         }
       }
     },
-    "FunnelSpec": {
-      "type": "object",
-      "description": "Funnel-based insight tracker spec.",
-      "required": [
-        "type",
-        "trigger",
-        "data"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "type": "string",
-          "const": "funnel",
-          "description": "Spec type discriminator. Must be 'funnel' for funnel-based trackers."
-        },
-        "trigger": {
-          "$ref": "#/$defs/trigger",
-          "description": "Controls when the tracker runs."
-        },
-        "data": {
-          "$ref": "#/$defs/dataSpec",
-          "description": "Event data selection and limits."
-        }
-      }
-    },
     "dataSpec": {
       "type": "object",
       "description": "Controls what event data is available to the tracker.",
@@ -237,7 +205,7 @@
               "items": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Event name (e.g., 'Signup', 'HabitCreated')."
+                "description": "Event name (e.g., 'signup_completed', 'habit_created')."
               },
               "description": "Explicit allowlist of event names."
             }
