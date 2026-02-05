@@ -1,0 +1,8 @@
+{
+    "yaml.schemas": {
+        "https://journium.app/schemas/journium-insight-tracker.schema.json": [
+            "**/*journium-tracker*.yml",
+            "**/*journium-tracker*.yaml"
+        ]
+    }
+}
