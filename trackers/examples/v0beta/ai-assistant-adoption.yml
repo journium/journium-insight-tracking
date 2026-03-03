@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.schema.json
+apiVersion: journium.app/v0Beta
+kind: InsightTracker
+metadata:
+  name: ai-assistant-adoption
+  displayName: AI Assistant Feature Adoption
+  description: Tracks adoption of the AI assistant feature by plan and region.
+
+spec:
+  type: LLM
+
+  trigger:
+    mode: automatic
+    schedule: weekly
+
+  window:
+    period: last_30d
+    granularity: week
+
+  analysis:
+    type: featureAdoption
+    entity: person_id
+    featureEvents:
+      - event: ai_assistant_opened
+        label: Opened AI Assistant
+      - event: ai_assistant_query_sent
+        label: Sent Query
+        filters:
+          - property: query_type
+            operator: not_in
+            value: [tutorial, demo]
+    activeUserBaseline:
+      event: session_started
+      period: last_30d
+    breakdowns:
+      - property: plan
+      - property: country
+    metrics:
+      - uniqueAdopters
+      - adoptionRate
+      - avgUsesPerAdopter
+      - weekOverWeekDelta
+    compareWindow: previous_period
+
+  llm:
+    promptTemplate: |
+      AI Assistant adoption (last 30 days):
+      Unique adopters: {{uniqueAdopters}} of {{activeUsers}} active users ({{adoptionRate}}%)
+      WoW change: {{weekOverWeekDelta}}%
+      Avg queries per adopter: {{avgUsesPerAdopter}}
+      By plan: {{planBreakdown}}
+      By country (top 5): {{countryBreakdown}}
+      In 2-3 sentences: summarize adoption health, identify the highest-adoption segment, and suggest one growth lever.
+    maxOutputTokens: 400
