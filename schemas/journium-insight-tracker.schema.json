@@ -23,6 +23,17 @@
                 "apiVersion"
             ],
             "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Alpha.schema.json"
+        },
+        {
+            "properties": {
+                "apiVersion": {
+                    "const": "journium.app/v0Beta"
+                }
+            },
+            "required": [
+                "apiVersion"
+            ],
+            "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json"
         }
     ]
 }
