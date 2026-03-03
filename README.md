@@ -30,14 +30,14 @@ An InsightTracker is a declarative configuration that defines:
 
 ## Schema Versions
 
-The schemas in this repository are published at `https://journium.app/schemas/`. You can reference them directly in your tracker configurations or use them for validation.
+The schemas in this repository are published at `https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/`. You can reference them directly in your tracker configurations or use them for validation.
 
-**Canonical Schema URL:** `https://journium.app/schemas/journium-insight-tracker.schema.json`
+**Canonical Schema URL:** `https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.schema.json`
 
 | API Version | Status | Schema URL |
 |------------|--------|------------|
-| `journium.app/v0Beta` | **Beta (current)** | [v0Beta Schema](https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json) |
-| `journium.app/v0Alpha` | **Deprecated** — migrate to v0Beta | [v0Alpha Schema](https://journium.app/schemas/journium-insight-tracker.v0Alpha.schema.json) |
+| `journium.app/v0Beta` | **Beta (current)** | [v0Beta Schema](https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json) |
+| `journium.app/v0Alpha` | **Deprecated** — migrate to v0Beta | [v0Alpha Schema](https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Alpha.schema.json) |
 
 > **v0Alpha is deprecated.** New trackers should use `apiVersion: journium.app/v0Beta`.
 > Existing v0Alpha trackers continue to work but new creation will be blocked in a future release.

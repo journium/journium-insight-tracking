@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json",
+  "$id": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json",
   "title": "Journium InsightTracker v0Beta",
   "allOf": [
-    { "$ref": "https://journium.app/schemas/journium-insight-tracker.base.schema.json" },
+    { "$ref": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.base.schema.json" },
     {
       "type": "object",
       "required": ["apiVersion", "spec"],

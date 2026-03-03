@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://journium.app/schemas/journium-insight-tracker.schema.json",
+    "$id": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.schema.json",
     "title": "Journium InsightTracker",
     "type": "object",
     "required": [
@@ -22,7 +22,7 @@
             "required": [
                 "apiVersion"
             ],
-            "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Alpha.schema.json"
+            "$ref": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Alpha.schema.json"
         },
         {
             "properties": {
@@ -33,7 +33,7 @@
             "required": [
                 "apiVersion"
             ],
-            "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json"
+            "$ref": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json"
         }
     ]
 }
