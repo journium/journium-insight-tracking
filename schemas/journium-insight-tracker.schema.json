@@ -2,6 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.schema.json",
     "title": "Journium InsightTracker",
+    "description": "Root schema for all Journium InsightTracker versions. Dispatches to the correct version-specific schema based on apiVersion. Supported versions: 'journium.app/v0Alpha' (legacy), 'journium.app/v0Beta' (current, recommended for all new trackers).",
     "type": "object",
     "required": [
         "apiVersion"
@@ -9,7 +10,7 @@
     "properties": {
         "apiVersion": {
             "type": "string",
-            "description": "The version of the Journium InsightTracker schema."
+            "description": "Schema version discriminant. Must be exactly 'journium.app/v0Alpha' (legacy) or 'journium.app/v0Beta' (current). Always use 'journium.app/v0Beta' for new trackers — it provides typed analysis, structured aggregation, and richer LLM prompt variables."
         }
     },
     "oneOf": [
