@@ -353,7 +353,7 @@
         },
         "activeEvent": {
           "description": "The event(s) that count as user activity. Three forms: (1) '*' = any event counts as activity (broadest definition of 'active'); (2) a specific event name string = only that event counts (e.g. 'workout_completed', 'document_edited'); (3) an array of event names = any of these events counts (e.g. ['page_view', 'button_click', 'api_call']). Use '*' for apps where any interaction = engagement. Use a specific event or list for product-qualified activity (e.g. core feature usage).",
-          "oneOf": [
+          "anyOf": [
             {
               "const": "*",
               "description": "Any event counts as activity. Use when any product interaction indicates engagement."
