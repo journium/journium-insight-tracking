@@ -162,7 +162,7 @@
 
     "Analysis": {
       "type": "object",
-      "description": "The analytics query to run. Choose the type that best matches the business question: 'funnel' (ordered steps, drop-off), 'retention' (cohort return rate), 'activation' (aha-moment rate), 'churn' (at-risk silent users), 'featureAdoption' (feature usage rate), 'anomaly' (spike/dip detection), 'conversion' (simple numerator/denominator rate), 'cohort' (compare metric across user cohorts). Use 'custom' only for v0Alpha migration.",
+      "description": "The analytics query to run. Choose the type that best matches the business question: 'funnel' (ordered steps, drop-off), 'retention' (cohort return rate), 'activation' (aha-moment rate), 'churn' (at-risk silent users), 'featureAdoption' (feature usage rate), 'anomaly' (spike/dip detection), 'conversion' (simple numerator/denominator rate), 'cohort' (compare metric across user cohorts), 'trend' (count/sum/avg of events per time period — signups per month, DAU, weekly revenue). Use 'custom' only for v0Alpha migration.",
       "required": ["type"],
       "properties": { "type": { "type": "string" } },
       "oneOf": [
@@ -174,6 +174,7 @@
         { "$ref": "#/$defs/AnomalyAnalysis" },
         { "$ref": "#/$defs/ConversionAnalysis" },
         { "$ref": "#/$defs/CohortAnalysis" },
+        { "$ref": "#/$defs/TrendAnalysis" },
         { "$ref": "#/$defs/CustomAnalysis" }
       ]
     },
@@ -703,6 +704,52 @@
           "maximum": 24,
           "default": 8,
           "description": "Maximum number of cohorts to include in results (most recent N cohorts for time-based, or all defined values for property-based). Default 8. Increase for longer trend analysis; decrease to focus on the most recent cohorts."
+        }
+      }
+    },
+
+    "TrendAnalysis": {
+      "type": "object",
+      "description": "Counts events (or computes unique users, sums, or averages) bucketed by a time period. Use when the business question is 'how many times does X happen per day/week/month?' or 'how is this metric growing over time?'. Examples: signups per month, daily active users, weekly revenue, monthly API calls. For spike/anomaly detection, use AnomalyAnalysis instead.",
+      "required": ["type", "event", "aggregation", "groupBy"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "trend",
+          "description": "Always 'trend' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id", "session_id", "device_id"],
+          "default": "person_id",
+          "description": "The entity to count for 'uniqueUsers' aggregation. 'person_id' = unique users (recommended). 'session_id' = unique sessions. 'device_id' = unique devices. Ignored for 'count', 'sum', 'avg' aggregations."
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The event to aggregate per time period (e.g. 'user_signed_up', 'purchase', 'page_view', 'api_call'). Must match an instrumented event name exactly."
+        },
+        "aggregation": {
+          "enum": ["count", "uniqueUsers", "sum", "avg"],
+          "description": "How to aggregate the event per time bucket. 'count' = total event occurrences (e.g. total signups per month). 'uniqueUsers' = distinct entities (e.g. DAU — unique users per day). 'sum' = sum of a numeric property (requires sumProperty, e.g. monthly revenue). 'avg' = average of a numeric property (requires sumProperty, e.g. avg session duration per week)."
+        },
+        "groupBy": {
+          "enum": ["hour", "day", "week", "month"],
+          "description": "Time bucket size for the series. 'hour' = hourly (use with last_1d or last_7d). 'day' = daily (DAU, use with last_7d–last_90d). 'week' = weekly (use with last_30d–last_365d). 'month' = monthly (use with last_90d–last_365d). Match the bucket size to the window: a 7-day window with 'month' groupBy would produce only one bucket."
+        },
+        "sumProperty": {
+          "type": "string",
+          "description": "Required when aggregation is 'sum' or 'avg'. The numeric event property to sum or average (e.g. 'revenue_usd', 'duration_ms', 'items_count'). Must match an instrumented event property key exactly."
+        },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PropertyFilter" },
+          "maxItems": 10,
+          "description": "Optional filters to scope the metric to a subset of events (e.g. filter 'page_view' to page_path='/checkout'). Multiple filters are AND-ed."
+        },
+        "compareWindow": {
+          "enum": ["previous_period"],
+          "description": "If 'previous_period', also compute the same metric for the prior window of equal length. The LLM receives both values and can report period-over-period growth (e.g. 'signups grew 23% month-over-month')."
         }
       }
     },
