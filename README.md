@@ -30,9 +30,9 @@ An InsightTracker is a declarative configuration that defines:
 
 ## Schema Versions
 
-The schemas in this repository are published at `https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/`. You can reference them directly in your tracker configurations or use them for validation.
+The schemas in this repository are published at `https://journium.app/schemas/`. You can reference them directly in your tracker configurations or use them for validation.
 
-**Canonical Schema URL:** `https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.schema.json`
+**Canonical Schema URL:** `https://journium.app/schemas/journium-insight-tracker.schema.json`
 
 | API Version | Status | Schema URL |
 |------------|--------|------------|
