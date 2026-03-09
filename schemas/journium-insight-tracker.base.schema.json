@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.base.schema.json",
+    "$id": "https://journium.app/schemas/journium-insight-tracker.base.schema.json",
     "description": "Base schema shared by all InsightTracker versions. Defines the top-level envelope (apiVersion, kind, metadata, spec). Version-specific schemas extend this via allOf + $ref.",
     "type": "object",
     "required": [

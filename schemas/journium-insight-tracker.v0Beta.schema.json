@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json",
+  "$id": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json",
   "title": "Journium InsightTracker v0Beta",
   "description": "v0Beta InsightTracker specification. Each tracker runs a typed analytics query against the event store, then passes the aggregated results to an LLM for narrative insight generation. Choose the analysis type that matches the business question being asked.",
   "allOf": [
-    { "$ref": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.base.schema.json" },
+    { "$ref": "https://journium.app/schemas/journium-insight-tracker.base.schema.json" },
     {
       "type": "object",
       "required": ["apiVersion", "spec"],

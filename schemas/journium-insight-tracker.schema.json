@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.schema.json",
+    "$id": "https://journium.app/schemas/journium-insight-tracker.schema.json",
     "title": "Journium InsightTracker",
     "description": "Root schema for Journium InsightTracker. All trackers must use apiVersion 'journium.app/v0Beta'.",
     "type": "object",
@@ -23,7 +23,7 @@
             "required": [
                 "apiVersion"
             ],
-            "$ref": "https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json"
+            "$ref": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json"
         }
     ]
 }
