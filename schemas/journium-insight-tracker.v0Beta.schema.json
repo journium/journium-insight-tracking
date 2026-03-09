@@ -1,0 +1,867 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://journium.app/schemas/journium-insight-tracker.v0Beta.schema.json",
+  "title": "Journium InsightTracker v0Beta",
+  "description": "v0Beta InsightTracker specification. Each tracker runs a typed analytics query against the event store, then passes the aggregated results to an LLM for narrative insight generation. Choose the analysis type that matches the business question being asked.",
+  "allOf": [
+    { "$ref": "https://journium.app/schemas/journium-insight-tracker.base.schema.json" },
+    {
+      "type": "object",
+      "required": ["apiVersion", "spec"],
+      "properties": {
+        "apiVersion": { "const": "journium.app/v0Beta" },
+        "spec": { "$ref": "#/$defs/Spec" }
+      }
+    }
+  ],
+  "$defs": {
+
+    "Spec": {
+      "type": "object",
+      "description": "Full tracker specification: how it is triggered, the data window, the analytics query, the LLM prompt, and optional privacy controls.",
+      "required": ["type", "trigger", "window", "analysis", "llm"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "LLM",
+          "description": "Always 'LLM'. Indicates this tracker uses an LLM to interpret query results. Do not use an analysis type name here — that goes in spec.analysis.type."
+        },
+        "trigger":  { "$ref": "#/$defs/Trigger" },
+        "window":   { "$ref": "#/$defs/Window" },
+        "analysis": { "$ref": "#/$defs/Analysis" },
+        "llm":      { "$ref": "#/$defs/LLMConfig" },
+        "privacy":  { "$ref": "#/$defs/Privacy" }
+      }
+    },
+
+    "Trigger": {
+      "type": "object",
+      "description": "Controls when this tracker runs. 'automatic' runs on a recurring schedule; 'manual' only runs when triggered explicitly via the API or UI.",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": ["automatic", "manual"],
+          "description": "'automatic' = run on a recurring schedule (schedule field required). 'manual' = only run on-demand via API or UI trigger."
+        },
+        "schedule": {
+          "description": "Required when mode='automatic'. How frequently the tracker executes. Use a preset string for common cadences or a cron object for custom schedules.",
+          "oneOf": [
+            {
+              "enum": ["hourly", "daily", "weekly", "monthly"],
+              "description": "Preset schedule: 'hourly' = every hour, 'daily' = once per day at midnight UTC, 'weekly' = every Monday midnight UTC, 'monthly' = first day of each month."
+            },
+            {
+              "type": "object",
+              "description": "Custom cron schedule. Use standard 5-field cron syntax (minute hour day month weekday). Example: { cron: '0 9 * * 1' } = every Monday at 09:00 UTC.",
+              "required": ["cron"],
+              "additionalProperties": false,
+              "properties": {
+                "cron": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 100,
+                  "description": "Standard 5-field cron expression (minute hour day-of-month month day-of-week). All times are UTC. Example: '0 9 * * 1' runs every Monday at 09:00 UTC."
+                }
+              }
+            }
+          ]
+        }
+      },
+      "if":   { "properties": { "mode": { "const": "automatic" } }, "required": ["mode"] },
+      "then": { "required": ["schedule"] }
+    },
+
+    "Window": {
+      "type": "object",
+      "description": "The rolling time window over which event data is queried. The query always ends at the moment of execution and looks back by the specified period. All analysis queries respect this window unless overridden by analysis-specific parameters (e.g. ChurnAnalysis.lookbackPeriod).",
+      "required": ["period"],
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "description": "How far back to look from the execution time. Preset strings (e.g. 'last_7d') are recommended. A custom {start, end} object allows absolute date ranges for backfill or ad-hoc analysis.",
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "last_1d", "last_7d", "last_14d", "last_30d",
+                "last_60d", "last_90d", "last_180d", "last_365d"
+              ],
+              "description": "Rolling lookback window ending now. 'last_7d' = past 7 days, 'last_30d' = past 30 days, etc. Choose based on the natural cadence of the metric: daily metrics → last_7d or last_30d; monthly trends → last_90d or last_365d."
+            },
+            {
+              "type": "object",
+              "description": "Absolute date range for backfill or fixed-period analysis. Both start and end are ISO-8601 datetime strings (UTC).",
+              "required": ["start", "end"],
+              "additionalProperties": false,
+              "properties": {
+                "start": { "type": "string", "description": "Inclusive start of the window. ISO-8601 datetime string (e.g. '2025-01-01T00:00:00Z')." },
+                "end":   { "type": "string", "description": "Exclusive end of the window. ISO-8601 datetime string (e.g. '2025-02-01T00:00:00Z')." }
+              }
+            }
+          ]
+        },
+        "granularity": {
+          "enum": ["hour", "day", "week", "month"],
+          "description": "Time bucket size for time-series breakdowns within the window. Only relevant for analysis types that produce series data (anomaly, funnel with time-series). If omitted, the system chooses based on the window period: last_1d→hour, last_7d/14d→day, last_30d/60d→day or week, last_90d+→week or month."
+        },
+        "timezone": {
+          "type": "string",
+          "default": "UTC",
+          "description": "IANA timezone name for aligning day/week/month boundaries (e.g. 'America/New_York', 'Europe/London'). Defaults to 'UTC'. Use the customer's primary timezone so 'daily' boundaries match business days."
+        }
+      }
+    },
+
+    "PropertyFilter": {
+      "type": "object",
+      "description": "A single filter on an event property. Applied to individual events before aggregation. Multiple filters on the same event are AND-ed together.",
+      "required": ["property", "operator", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "property": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The event property key to filter on (e.g. 'plan', 'country', 'page_type'). Must match the exact key used during event instrumentation."
+        },
+        "operator": {
+          "enum": [
+            "eq", "neq", "in", "not_in",
+            "contains", "not_contains",
+            "gt", "gte", "lt", "lte",
+            "is_null", "is_not_null"
+          ],
+          "description": "Comparison operator. 'eq'=equals, 'neq'=not-equals, 'in'=value is one of a list, 'not_in'=value is not in a list, 'contains'/'not_contains'=string substring match, 'gt'/'gte'/'lt'/'lte'=numeric or date ordering, 'is_null'=property absent or null, 'is_not_null'=property present and non-null. 'value' is ignored for is_null and is_not_null."
+        },
+        "value": {
+          "description": "The value to compare against. Type must match the property: string for string operators, number for numeric operators, array for 'in'/'not_in'. Ignored for 'is_null' and 'is_not_null'."
+        }
+      }
+    },
+
+    "BreakdownDef": {
+      "type": "object",
+      "description": "Split query results by a user or event property. The query groups by the top maxCardinality values by volume; all remaining values are bucketed as 'Other'. Use breakdowns to surface segment-level differences (e.g. by 'plan', 'country', 'device_type').",
+      "required": ["property"],
+      "additionalProperties": false,
+      "properties": {
+        "property": {
+          "type": "string",
+          "description": "The property key to group by (e.g. 'plan', 'country', 'platform'). Must match the exact key used during instrumentation."
+        },
+        "maxCardinality": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 20,
+          "default": 5,
+          "description": "Maximum number of distinct values to show individually. Values beyond this limit are grouped as 'Other'. Default 5. Increase for high-cardinality properties like 'country' (use 10–15); keep low for 'plan' or 'tier' (2–5)."
+        }
+      }
+    },
+
+    "Analysis": {
+      "type": "object",
+      "description": "The analytics query to run. Choose the type that best matches the business question: 'funnel' (ordered steps, drop-off), 'retention' (cohort return rate), 'activation' (aha-moment rate), 'churn' (at-risk silent users), 'featureAdoption' (feature usage rate), 'anomaly' (spike/dip detection), 'conversion' (simple numerator/denominator rate), 'cohort' (compare metric across user cohorts), 'trend' (count/sum/avg of events per time period — signups per month, DAU, weekly revenue). Use 'custom' only for v0Alpha migration.",
+      "required": ["type"],
+      "properties": { "type": { "type": "string" } },
+      "oneOf": [
+        { "$ref": "#/$defs/FunnelAnalysis" },
+        { "$ref": "#/$defs/RetentionAnalysis" },
+        { "$ref": "#/$defs/ActivationAnalysis" },
+        { "$ref": "#/$defs/ChurnAnalysis" },
+        { "$ref": "#/$defs/FeatureAdoptionAnalysis" },
+        { "$ref": "#/$defs/AnomalyAnalysis" },
+        { "$ref": "#/$defs/ConversionAnalysis" },
+        { "$ref": "#/$defs/CohortAnalysis" },
+        { "$ref": "#/$defs/TrendAnalysis" },
+        { "$ref": "#/$defs/CustomAnalysis" }
+      ]
+    },
+
+    "FunnelAnalysis": {
+      "type": "object",
+      "description": "Measures user progression through an ordered sequence of steps and identifies drop-off between each step. Use when the business question is 'where are users dropping out of a flow?' (e.g. signup funnel, checkout funnel, onboarding wizard). Users must complete earlier steps before later ones are counted.",
+      "required": ["type", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "funnel",
+          "description": "Always 'funnel' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id", "session_id", "device_id"],
+          "default": "person_id",
+          "description": "The unit of analysis. 'person_id' = unique users across sessions (recommended for most funnels). 'session_id' = within-session funnels (use for checkout or single-session flows). 'device_id' = device-level (use for anonymous or pre-login funnels)."
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "description": "Ordered list of funnel steps. Users must complete them in this order within the conversionWindow. Minimum 2 steps, maximum 10. The first step defines the funnel entry cohort.",
+          "items": {
+            "type": "object",
+            "required": ["event", "label"],
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "The event name that defines this step (e.g. 'page_view', 'add_to_cart', 'checkout_started', 'purchase'). Must match an instrumented event name exactly."
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "Human-readable name for this step shown in reports and the LLM prompt (e.g. 'Product View', 'Add to Cart', 'Purchase Completed'). Keep concise."
+              },
+              "filters": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/PropertyFilter" },
+                "maxItems": 10,
+                "description": "Optional property filters scoped to this step only. Use to narrow a step to a specific variant of the event (e.g. filter page_view to page_type='product'). Multiple filters are AND-ed."
+              }
+            }
+          }
+        },
+        "conversionWindow": {
+          "type": "string",
+          "pattern": "^[0-9]+(m|h|d)$",
+          "description": "Maximum time allowed to complete the entire funnel from the first step. Users who take longer are excluded from conversion counts. Format: integer + unit (m=minutes, h=hours, d=days). Examples: '30m' (quick form), '48h' (checkout), '7d' (complex signup). Default: full window period if omitted."
+        },
+        "breakdowns": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/BreakdownDef" },
+          "description": "Split all funnel metrics by up to 3 properties. The LLM receives per-segment conversion rates and can surface which segments have worse drop-off. Common: 'plan', 'country', 'device_type'."
+        },
+        "globalFilters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PropertyFilter" },
+          "maxItems": 5,
+          "description": "Filters applied to every step in the funnel. Use to scope the entire funnel to a specific audience (e.g. filter to paying customers, a specific platform, or a country). Multiple filters are AND-ed."
+        }
+      }
+    },
+
+    "RetentionAnalysis": {
+      "type": "object",
+      "description": "Tracks what fraction of users who performed a cohort-defining event return to perform a retention event after N days/weeks/months. Use when the business question is 'are users coming back?' (e.g. D1/D7/D30 retention after signup, weekly active retention after first purchase). Classic cohort retention chart.",
+      "required": ["type", "cohortEvent", "retentionEvent", "intervals"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "retention",
+          "description": "Always 'retention' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id"],
+          "default": "person_id",
+          "description": "Always 'person_id' for retention — retention is measured at the user level."
+        },
+        "cohortEvent": {
+          "type": "string",
+          "description": "The event that defines cohort membership. Users who perform this event are entered into a cohort for the day/week/month they first performed it (e.g. 'user_signed_up', 'first_purchase', 'subscription_started'). Must match an instrumented event name exactly."
+        },
+        "retentionEvent": {
+          "type": "string",
+          "description": "The event that counts as 'retained' in subsequent periods. Often the same as cohortEvent (e.g. 'user_signed_in' for login retention) or a core action (e.g. 'workout_completed', 'transaction_created'). Must match an instrumented event name exactly."
+        },
+        "cohortPeriod": {
+          "enum": ["day", "week", "month"],
+          "default": "week",
+          "description": "How to group cohorts. 'day' = daily cohorts (best for high-volume apps with many users per day). 'week' = weekly cohorts (recommended default for most B2C apps). 'month' = monthly cohorts (best for B2B or low-volume apps). Affects what 'interval 1' means: day→D1, week→W1, month→M1."
+        },
+        "intervals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "type": "integer", "minimum": 1, "maximum": 365 },
+          "description": "The retention time points to measure, expressed in cohortPeriod units. Example: cohortPeriod='week', intervals=[1,2,4,8,12] = W1, W2, W4, W8, W12 retention. Example: cohortPeriod='day', intervals=[1,7,14,30] = D1, D7, D14, D30 retention. Max 8 intervals."
+        },
+        "minCohortSize": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 5,
+          "description": "Cohorts smaller than this threshold are excluded from results to avoid statistically noisy percentages from tiny samples. Default 5. Increase to 20–50 for cleaner charts; decrease to 1 to see all cohorts including very small ones."
+        },
+        "maxCohorts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 52,
+          "default": 12,
+          "description": "Maximum number of cohorts to include (most recent N). Default 12. For weekly cohorts, 12 shows ~3 months of history. For monthly cohorts, 12 shows 1 year. Increase for longer trend analysis."
+        }
+      }
+    },
+
+    "ActivationAnalysis": {
+      "type": "object",
+      "description": "Measures the 'aha moment' rate: what percentage of users who completed a start event also completed a key value action (ahaEvent) within a given time window. Use when the business question is 'are new users reaching the first value moment?' (e.g. % of signups who created their first project within 24 hours, % of trial users who connected an integration within 7 days).",
+      "required": ["type", "startEvent", "ahaEvent", "activationWindow"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "activation",
+          "description": "Always 'activation' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id"],
+          "default": "person_id",
+          "description": "Always 'person_id' for activation — activation is measured at the user level."
+        },
+        "startEvent": {
+          "type": "string",
+          "description": "The entry event that starts the activation clock (e.g. 'user_signed_up', 'trial_started', 'app_installed'). This defines the denominator: users who did this event in the window. Must match an instrumented event name exactly."
+        },
+        "ahaEvent": {
+          "type": "string",
+          "description": "The key value moment that counts as 'activated' (e.g. 'first_project_created', 'first_purchase', 'integration_connected', 'invite_sent'). This defines the numerator: users who completed this after startEvent within activationWindow. Must match an instrumented event name exactly."
+        },
+        "activationWindow": {
+          "type": "string",
+          "pattern": "^[0-9]+(h|d)$",
+          "description": "Maximum time from startEvent to ahaEvent for a user to be counted as activated. Format: integer + unit (h=hours, d=days). Examples: '24h' (tight onboarding SLA), '7d' (weekly onboarding), '14d' (complex enterprise onboarding). Users who take longer are counted as not activated."
+        },
+        "compareWindow": {
+          "enum": ["previous_period"],
+          "description": "If 'previous_period', also compute the activation rate for the prior window of equal length. The LLM receives both values and can report period-over-period change (e.g. 'activation rate improved from 32% to 41% week-over-week')."
+        },
+        "breakdowns": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/BreakdownDef" },
+          "description": "Split activation rate by up to 3 properties. Useful for identifying which user segments activate best (e.g. by acquisition channel, plan, or country)."
+        }
+      }
+    },
+
+    "ChurnAnalysis": {
+      "type": "object",
+      "description": "Identifies users who were previously active but have since gone silent (at-risk of churning). The analysis finds users who performed activeEvent during the lookbackPeriod but have NOT performed it within the inactivityThreshold. Use when the business question is 'which users are going quiet?' or 'how many users are at risk of churning this week?'",
+      "required": ["type", "activeEvent", "inactivityThreshold"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "churn",
+          "description": "Always 'churn' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id"],
+          "default": "person_id",
+          "description": "Always 'person_id' for churn — churn is measured at the user level."
+        },
+        "activeEvent": {
+          "description": "The event(s) that count as user activity. Three forms: (1) '*' = any event counts as activity (broadest definition of 'active'); (2) a specific event name string = only that event counts (e.g. 'workout_completed', 'document_edited'); (3) an array of event names = any of these events counts (e.g. ['page_view', 'button_click', 'api_call']). Use '*' for apps where any interaction = engagement. Use a specific event or list for product-qualified activity (e.g. core feature usage).",
+          "anyOf": [
+            {
+              "const": "*",
+              "description": "Any event counts as activity. Use when any product interaction indicates engagement."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "description": "A single specific event name that counts as activity (e.g. 'workout_completed'). Must match an instrumented event name exactly."
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 },
+              "description": "A list of event names where any match counts as activity (e.g. ['page_view', 'api_call', 'feature_used']). Use when multiple distinct actions all indicate meaningful engagement."
+            }
+          ]
+        },
+        "lookbackPeriod": {
+          "type": "string",
+          "pattern": "^[0-9]+d$",
+          "default": "30d",
+          "description": "How far back to search for historically active users (the 'active base'). A user must have performed activeEvent at least once within this period (but not within inactivityThreshold) to appear in the at-risk count. Default '30d'. Should be significantly longer than inactivityThreshold (e.g. lookbackPeriod='30d', inactivityThreshold='7d')."
+        },
+        "inactivityThreshold": {
+          "type": "string",
+          "pattern": "^[0-9]+d$",
+          "description": "How long a user must have been inactive to be considered 'at risk'. A user with NO activeEvent in the past N days is flagged. Format: integer + 'd' (e.g. '7d', '14d', '30d'). Match to your product's natural engagement cadence: daily apps → '3d' or '7d'; weekly apps → '14d' or '21d'; monthly apps → '30d' or '45d'."
+        },
+        "segments": {
+          "type": "array",
+          "maxItems": 3,
+          "description": "Break down at-risk users by up to 3 user properties. The LLM receives per-segment at-risk counts and can identify which user segments are most affected (e.g. 'free plan users show 3× the churn rate of paid users').",
+          "items": {
+            "type": "object",
+            "required": ["property"],
+            "additionalProperties": false,
+            "properties": {
+              "property": {
+                "type": "string",
+                "description": "User property key to segment by (e.g. 'plan', 'country', 'cohort_month', 'acquisition_channel'). Must match the exact key used during event instrumentation."
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "description": "Which churn metrics to compute and pass to the LLM. If omitted, all metrics are computed. 'atRiskCount' = total number of at-risk users. 'atRiskRate' = at-risk users as a % of the active base. 'segmentBreakdown' = per-segment counts (requires segments to be defined). 'timeSeriesTrend' = at-risk count over time.",
+          "items": {
+            "enum": ["atRiskCount", "atRiskRate", "segmentBreakdown", "timeSeriesTrend"]
+          }
+        }
+      }
+    },
+
+    "FeatureAdoptionAnalysis": {
+      "type": "object",
+      "description": "Measures what fraction of active users have adopted a specific feature. The adoption rate = users who performed at least one featureEvent ÷ users who performed the activeUserBaseline event in the same period. Use when the business question is 'how many of our active users have tried feature X?' or 'is adoption of the new dashboard growing?'",
+      "required": ["type", "featureEvents", "activeUserBaseline"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "featureAdoption",
+          "description": "Always 'featureAdoption' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id"],
+          "default": "person_id",
+          "description": "Always 'person_id' — feature adoption is measured at the user level."
+        },
+        "featureEvents": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "description": "The events that represent feature usage. A user is counted as an adopter if they performed at least one of these events in the window. List up to 5 events to cover all entry points to the feature (e.g. different ways to trigger the same feature).",
+          "items": {
+            "type": "object",
+            "required": ["event"],
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "type": "string",
+                "description": "Event name representing one way the feature is used (e.g. 'dashboard_viewed', 'report_exported', 'api_called'). Must match an instrumented event name exactly."
+              },
+              "label": {
+                "type": "string",
+                "description": "Human-readable label for this feature event in reports (e.g. 'Dashboard View', 'Report Export'). Used by the LLM to describe which feature interactions are being tracked."
+              },
+              "filters": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/PropertyFilter" },
+                "maxItems": 5,
+                "description": "Optional filters scoped to this feature event only. Use to narrow to a specific variant (e.g. filter 'button_clicked' to feature='export')."
+              }
+            }
+          }
+        },
+        "activeUserBaseline": {
+          "type": "object",
+          "description": "Defines the 'active user' denominator — who is considered an active user in this period. Typically a high-frequency event like 'app_opened', 'page_viewed', or 'session_started'. The adoption rate = feature adopters ÷ active users.",
+          "required": ["event"],
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "type": "string",
+              "description": "The event that qualifies a user as 'active' (e.g. 'app_opened', 'dashboard_loaded', 'api_called'). Users who performed this event in the window form the denominator. Must match an instrumented event name exactly."
+            },
+            "period": {
+              "type": "string",
+              "description": "Optional override for the baseline measurement period. If omitted, uses the tracker's window period. Use to compute DAU-based adoption (period='last_1d') within a longer window."
+            }
+          }
+        },
+        "breakdowns": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/BreakdownDef" },
+          "description": "Split adoption rate by up to 3 user or event properties. Useful for identifying which user segments have low adoption (e.g. adoption by 'plan', 'company_size', 'acquisition_channel')."
+        },
+        "metrics": {
+          "type": "array",
+          "description": "Which adoption metrics to compute. If omitted, all metrics are computed. 'uniqueAdopters' = count of users who used the feature. 'adoptionRate' = adopters ÷ active users (%). 'avgUsesPerAdopter' = average feature invocations per adopting user (engagement depth). 'weekOverWeekDelta' = change in adoption rate vs. prior week. 'monthOverMonthDelta' = change vs. prior month.",
+          "items": {
+            "enum": ["uniqueAdopters", "adoptionRate", "avgUsesPerAdopter", "weekOverWeekDelta", "monthOverMonthDelta"]
+          }
+        },
+        "compareWindow": {
+          "enum": ["previous_period"],
+          "description": "If 'previous_period', also compute adoption metrics for the prior window of equal length and include both values. Enables the LLM to report period-over-period change."
+        }
+      }
+    },
+
+    "AnomalyAnalysis": {
+      "type": "object",
+      "description": "Detects unusual spikes or dips in a metric by comparing current values to a statistical baseline. Use when the business question is 'did anything unusual happen with metric X?' or 'alert me when error rates or revenue deviate significantly from normal'. Supports up to 4 metrics per tracker.",
+      "required": ["type", "metrics", "baseline", "threshold"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "anomaly",
+          "description": "Always 'anomaly' for this analysis type."
+        },
+        "metrics": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "description": "The time-series metrics to monitor for anomalies. Each metric is an event + aggregation bucketed by a time unit. Define up to 4 metrics to monitor related signals together (e.g. error_count + latency_avg + revenue_sum).",
+          "items": {
+            "type": "object",
+            "required": ["event", "aggregation", "groupBy"],
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "type": "string",
+                "description": "The event to aggregate (e.g. 'api_error', 'purchase', 'page_view'). Must match an instrumented event name exactly."
+              },
+              "aggregation": {
+                "enum": ["count", "uniqueUsers", "sum", "avg"],
+                "description": "How to aggregate the event per time bucket. 'count' = total event occurrences. 'uniqueUsers' = distinct person_ids. 'sum' = sum of a numeric property (requires sumProperty). 'avg' = average of a numeric property (requires sumProperty)."
+              },
+              "label": {
+                "type": "string",
+                "description": "Human-readable metric name for reports and LLM prompt (e.g. 'Error Rate', 'Daily Revenue', 'Active Users'). If omitted, the event name is used."
+              },
+              "groupBy": {
+                "enum": ["hour", "day", "week"],
+                "description": "Time bucket size for this metric's time series. 'hour' = fine-grained intraday anomalies (use with last_1d or last_7d window). 'day' = daily anomalies (use with last_7d to last_90d). 'week' = weekly trend anomalies (use with last_90d+)."
+              },
+              "sumProperty": {
+                "type": "string",
+                "description": "Required when aggregation is 'sum' or 'avg'. The numeric event property to sum or average (e.g. 'revenue_usd', 'duration_ms', 'items_count'). Must match an instrumented event property key exactly."
+              },
+              "filters": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/PropertyFilter" },
+                "maxItems": 5,
+                "description": "Optional filters to scope this metric to a subset of events (e.g. filter 'api_call' to endpoint='/checkout'). Multiple filters are AND-ed."
+              }
+            }
+          }
+        },
+        "baseline": {
+          "type": "object",
+          "description": "Defines the normal/expected behavior that current values are compared against to detect anomalies.",
+          "required": ["type", "windowDays"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": ["rolling_average", "same_period_last_week", "same_period_last_month"],
+              "description": "How to compute the baseline. 'rolling_average' = average of the past windowDays of data (smooths out day-of-week effects for slowly changing metrics). 'same_period_last_week' = exact same time window 7 days ago (best for metrics with strong weekly patterns). 'same_period_last_month' = same window 28 days ago (best for monthly billing/revenue metrics)."
+            },
+            "windowDays": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 90,
+              "description": "For 'rolling_average': the number of days of history to average over. Larger values (14–30) produce stable baselines but are slower to adapt to structural shifts. Smaller values (3–7) react faster but can produce more false positives. Not used for same_period_last_week/month."
+            }
+          }
+        },
+        "threshold": {
+          "type": "object",
+          "description": "Statistical threshold that determines when a deviation is flagged as anomalous. A data point is anomalous when its deviation from the baseline exceeds stdDeviations standard deviations AND (if set) minAbsoluteChange.",
+          "required": ["stdDeviations"],
+          "additionalProperties": false,
+          "properties": {
+            "stdDeviations": {
+              "type": "number",
+              "minimum": 1.0,
+              "maximum": 5.0,
+              "description": "Number of standard deviations from the baseline mean required to flag an anomaly. Lower values (1.5–2.0) = more sensitive, more false positives. Higher values (2.5–3.0) = less sensitive, fewer false positives. Recommended: 2.0 for most production metrics, 1.5 for critical error/downtime detection."
+            },
+            "minAbsoluteChange": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Optional minimum absolute change required to flag an anomaly, in addition to the stdDeviations threshold. Use to suppress anomaly alerts when the absolute impact is trivially small even if statistically significant (e.g. minAbsoluteChange=100 ignores anomalies in metrics that fluctuate by fewer than 100 units)."
+            }
+          }
+        },
+        "includeTimeSeries": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the full time series (all data points, not just anomalous ones) is passed to the LLM. Enables richer narrative ('revenue spiked on Tuesday but returned to baseline by Thursday'). Set to false for lower token usage when only the anomaly summary is needed."
+        }
+      }
+    },
+
+    "ConversionAnalysis": {
+      "type": "object",
+      "description": "Computes a simple conversion rate: users who performed numeratorEvent ÷ users who performed denominatorEvent in the window. Use when the business question is 'what % of X users do Y?' and the relationship is not an ordered funnel (e.g. trial-to-paid rate, visit-to-signup rate, lead-to-close rate). For ordered multi-step flows, use FunnelAnalysis instead.",
+      "required": ["type", "numeratorEvent", "denominatorEvent"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "conversion",
+          "description": "Always 'conversion' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id", "session_id"],
+          "default": "person_id",
+          "description": "'person_id' = user-level conversion (recommended, deduplicates across sessions). 'session_id' = session-level conversion (use for visit-based metrics like bounce rate)."
+        },
+        "numeratorEvent": {
+          "type": "string",
+          "description": "The event in the numerator — the 'converted' action (e.g. 'subscription_started', 'purchase_completed', 'demo_booked'). Users who performed both numerator and denominator events are counted here. Must match an instrumented event name exactly."
+        },
+        "denominatorEvent": {
+          "type": "string",
+          "description": "The event in the denominator — the starting population (e.g. 'trial_started', 'page_viewed', 'lead_created'). All users who performed this event in the window form the denominator. Must match an instrumented event name exactly."
+        },
+        "conversionWindow": {
+          "type": "string",
+          "pattern": "^[0-9]+(h|d)$",
+          "description": "Maximum time from denominatorEvent to numeratorEvent for a user to be counted as converted. Format: integer + unit (h=hours, d=days). If omitted, any numeratorEvent within the full window counts. Example: '14d' for trial-to-paid (allows 2-week trial period to convert)."
+        },
+        "breakdowns": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/BreakdownDef" },
+          "description": "Split conversion rate by up to 3 properties. Useful for identifying which segments convert best (e.g. by 'acquisition_channel', 'plan', 'country')."
+        },
+        "compareWindow": {
+          "enum": ["previous_period"],
+          "description": "If 'previous_period', also compute conversion rate for the prior window of equal length. The LLM receives both rates and can report week-over-week or month-over-month change."
+        }
+      }
+    },
+
+    "CohortAnalysis": {
+      "type": "object",
+      "description": "Groups users into cohorts (either by when they first did something, or by a static property value) and compares a metric across those cohorts. Use when the business question is 'do newer users behave differently from older users?' or 'does the plan tier affect engagement over time?' Classic use cases: LTV by acquisition cohort, engagement by signup month, revenue by plan.",
+      "required": ["type", "cohortDefinition", "metric"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "cohort",
+          "description": "Always 'cohort' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id"],
+          "default": "person_id",
+          "description": "Always 'person_id' — cohort analysis is measured at the user level."
+        },
+        "cohortDefinition": {
+          "type": "object",
+          "description": "How to group users into cohorts. Two strategies: 'firstEvent' groups by the period (day/week/month) of the user's first occurrence of an event (time-based cohorts). 'property' groups by a fixed user property value (e.g. plan tier, country).",
+          "oneOf": [
+            {
+              "required": ["firstEvent"],
+              "additionalProperties": false,
+              "description": "Group users by the day/week/month of their first occurrence of a specific event. Creates time-based cohorts (e.g. 'users who signed up in week of Jan 6'). Best for LTV analysis, retention-by-cohort, and comparing newer vs. older user behavior.",
+              "properties": {
+                "firstEvent": {
+                  "type": "string",
+                  "description": "The event whose first occurrence defines cohort membership (e.g. 'user_signed_up', 'first_purchase', 'subscription_started'). Users are grouped by the period in which they first fired this event. Must match an instrumented event name exactly."
+                },
+                "period": {
+                  "enum": ["day", "week", "month"],
+                  "description": "The granularity of cohort grouping. 'day' = daily cohorts (high volume apps). 'week' = weekly cohorts (recommended default). 'month' = monthly cohorts (B2B / low-volume apps). Coarser periods produce more stable cohort sizes."
+                }
+              }
+            },
+            {
+              "required": ["property", "values"],
+              "additionalProperties": false,
+              "description": "Group users by a fixed property value rather than a time-based event. Creates static cohorts like 'free vs. pro vs. enterprise' or 'US vs. UK vs. DE'. Best for comparing behavior across product tiers or geographies.",
+              "properties": {
+                "property": {
+                  "type": "string",
+                  "description": "The user property used to define cohorts (e.g. 'plan', 'country', 'company_size'). Must match the exact property key used during instrumentation."
+                },
+                "values": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 10,
+                  "items": { "type": "string" },
+                  "description": "The specific values to create cohorts for (e.g. ['free', 'pro', 'enterprise']). Users whose property matches one of these values are included; others are excluded. Min 2, max 10 values."
+                }
+              }
+            }
+          ]
+        },
+        "metric": {
+          "type": "object",
+          "description": "The metric to compute for each cohort. Defines what is measured per user per cohort.",
+          "required": ["event", "aggregation"],
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "type": "string",
+              "description": "The event to measure for each cohort (e.g. 'purchase', 'feature_used', 'support_ticket_created'). Must match an instrumented event name exactly."
+            },
+            "aggregation": {
+              "enum": ["count", "uniqueUsers", "avg", "sum"],
+              "description": "How to aggregate the metric event per cohort. 'count' = total occurrences across all cohort users. 'uniqueUsers' = distinct users in the cohort who performed the event at least once. 'avg' = average event count per user in the cohort. 'sum' = total of a numeric property across all events (use with a sumProperty if applicable)."
+            },
+            "intervals": {
+              "type": "array",
+              "items": { "type": "integer" },
+              "maxItems": 8,
+              "description": "For firstEvent cohort definitions: the time intervals (in cohortPeriod units) after cohort entry at which to measure the metric. Example: [0, 1, 4, 12] = measure at entry, after 1 period, after 4 periods, after 12 periods. Enables LTV curves and engagement-over-time charts."
+            }
+          }
+        },
+        "maxCohorts": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 24,
+          "default": 8,
+          "description": "Maximum number of cohorts to include in results (most recent N cohorts for time-based, or all defined values for property-based). Default 8. Increase for longer trend analysis; decrease to focus on the most recent cohorts."
+        }
+      }
+    },
+
+    "TrendAnalysis": {
+      "type": "object",
+      "description": "Counts events (or computes unique users, sums, or averages) bucketed by a time period. Use when the business question is 'how many times does X happen per day/week/month?' or 'how is this metric growing over time?'. Examples: signups per month, daily active users, weekly revenue, monthly API calls. For spike/anomaly detection, use AnomalyAnalysis instead.",
+      "required": ["type", "event", "aggregation", "groupBy"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "trend",
+          "description": "Always 'trend' for this analysis type."
+        },
+        "entity": {
+          "enum": ["person_id", "session_id", "device_id"],
+          "default": "person_id",
+          "description": "The entity to count for 'uniqueUsers' aggregation. 'person_id' = unique users (recommended). 'session_id' = unique sessions. 'device_id' = unique devices. Ignored for 'count', 'sum', 'avg' aggregations."
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The event to aggregate per time period (e.g. 'user_signed_up', 'purchase', 'page_view', 'api_call'). Must match an instrumented event name exactly."
+        },
+        "aggregation": {
+          "enum": ["count", "uniqueUsers", "sum", "avg"],
+          "description": "How to aggregate the event per time bucket. 'count' = total event occurrences (e.g. total signups per month). 'uniqueUsers' = distinct entities (e.g. DAU — unique users per day). 'sum' = sum of a numeric property (requires sumProperty, e.g. monthly revenue). 'avg' = average of a numeric property (requires sumProperty, e.g. avg session duration per week)."
+        },
+        "groupBy": {
+          "enum": ["hour", "day", "week", "month"],
+          "description": "Time bucket size for the series. 'hour' = hourly (use with last_1d or last_7d). 'day' = daily (DAU, use with last_7d–last_90d). 'week' = weekly (use with last_30d–last_365d). 'month' = monthly (use with last_90d–last_365d). Match the bucket size to the window: a 7-day window with 'month' groupBy would produce only one bucket."
+        },
+        "sumProperty": {
+          "type": "string",
+          "description": "Required when aggregation is 'sum' or 'avg'. The numeric event property to sum or average (e.g. 'revenue_usd', 'duration_ms', 'items_count'). Must match an instrumented event property key exactly."
+        },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PropertyFilter" },
+          "maxItems": 10,
+          "description": "Optional filters to scope the metric to a subset of events (e.g. filter 'page_view' to page_path='/checkout'). Multiple filters are AND-ed."
+        },
+        "compareWindow": {
+          "enum": ["previous_period"],
+          "description": "If 'previous_period', also compute the same metric for the prior window of equal length. The LLM receives both values and can report period-over-period growth (e.g. 'signups grew 23% month-over-month')."
+        }
+      }
+    },
+
+    "CustomAnalysis": {
+      "type": "object",
+      "description": "Legacy raw-events mode preserved for v0Alpha migration only. Passes raw event rows directly to the LLM without aggregation. Deprecated: use a typed analysis (funnel, retention, churn, etc.) for all new trackers. Raw event access is less structured, more expensive, and produces less reliable LLM outputs than typed analyses.",
+      "$comment": "analysis.type=custom is not surfaced in the UI tracker builder. maxEvents is hard-capped server-side at 50.",
+      "required": ["type", "rawEvents"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "custom",
+          "description": "Always 'custom' for this legacy analysis type. Do not use for new trackers."
+        },
+        "rawEvents": {
+          "type": "object",
+          "description": "Configuration for raw event fetching. Events are fetched in reverse-chronological order up to maxEvents.",
+          "required": ["events"],
+          "additionalProperties": false,
+          "properties": {
+            "events": {
+              "description": "'*' = fetch all event types. Array of strings = fetch only these named event types.",
+              "oneOf": [
+                { "const": "*" },
+                { "type": "array", "minItems": 1, "items": { "type": "string" } }
+              ]
+            },
+            "maxEvents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Maximum number of raw event rows to fetch and pass to the LLM. Hard-capped at 50. Higher values increase token usage and cost."
+            },
+            "minEvents": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum number of events required to proceed with LLM analysis. If fewer events exist, the job skips the LLM call and returns no insight."
+            },
+            "excludeFields": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Event property keys to strip from raw event rows before passing to the LLM. Use for PII fields not covered by spec.privacy."
+            }
+          }
+        }
+      }
+    },
+
+    "LLMConfig": {
+      "type": "object",
+      "description": "Configuration for the LLM insight generation step. The prompt receives computed aggregates from the analysis query and produces a narrative insight. Write prompts that ask for specific, actionable observations rather than general summaries.",
+      "required": ["promptTemplate"],
+      "additionalProperties": false,
+      "properties": {
+        "promptTemplate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 3000,
+          "description": "Handlebars-style template injected with computed query results. Use {{variableName}} placeholders. Available variables by analysis type — Funnel: {{stepsSummary}}, {{worstStep}}, {{worstStepLoss}}, {{worstStepCvr}}, {{breakdownSummary}}. Retention: {{cohortTable}}, {{avgD1}}, {{avgD7}}, {{avgD30}}, {{latestCohortWeek}}, {{retentionTrend}}. Churn: {{atRiskCount}}, {{atRiskRate}}, {{topSegment}}. Activation: {{activationRate}}, {{medianHours}}, {{delta}}. FeatureAdoption: {{adoptionRate}}, {{uniqueAdopters}}, {{avgUsesPerAdopter}}, {{delta}}. Anomaly: {{anomalySummary}}, {{affectedMetric}}, {{deviation}}. Conversion: {{conversionRate}}, {{numeratorCount}}, {{denominatorCount}}, {{delta}}. Cohort: {{cohortTable}}, {{topCohort}}, {{bottomCohort}}. Universal: {{windowPeriod}}, {{executedAt}}. Write prompts that name a specific decision or action: 'In 2-3 sentences identify the biggest drop-off, state one hypothesis, and recommend one experiment.'"
+        },
+        "systemMessage": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional instruction injected as a system message before the prompt template. Use for persistent tone or domain context (e.g. 'Respond in Spanish.', 'You are a growth advisor for a B2B SaaS company.', 'Be concise — max 3 bullet points.'). Keep under 200 chars for best results."
+        },
+        "maxOutputTokens": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 2000,
+          "default": 500,
+          "description": "Maximum tokens the LLM may use for its response. Default 500 (~300–400 words). Use 200–300 for executive one-liners. Use 800–1200 for detailed multi-section reports with bullet points. Use 1500–2000 only for comprehensive analyses with tables or long recommendations."
+        },
+        "guardrails": {
+          "type": "object",
+          "description": "Optional instructions to reduce hallucination and improve output reliability. Both are strongly recommended for production trackers.",
+          "additionalProperties": false,
+          "properties": {
+            "citeSources": {
+              "type": "boolean",
+              "default": true,
+              "description": "If true, the LLM is instructed to reference specific numbers from the provided data rather than speaking in generalities (e.g. 'conversion dropped to 12.4%' not 'conversion declined'). Strongly recommended — produces more trustworthy, verifiable outputs."
+            },
+            "noHallucination": {
+              "type": "boolean",
+              "default": true,
+              "description": "If true, the LLM is instructed to draw conclusions only from the provided data and to say 'insufficient data' rather than inventing trends or causations not present in the numbers. Strongly recommended — prevents fabricated insights that could mislead decisions."
+            }
+          }
+        }
+      }
+    },
+
+    "Privacy": {
+      "type": "object",
+      "description": "Controls which event properties are stripped or pseudonymised before any query or LLM call. Applied at the data access layer — excluded properties are never read from storage for this tracker.",
+      "additionalProperties": false,
+      "properties": {
+        "excludeProperties": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "type": "string" },
+          "description": "Event property keys to completely strip before any query or LLM call. Use for PII fields (e.g. 'email', 'phone', 'full_name', 'ip_address', 'user_agent') that must never reach the LLM or appear in aggregates. These properties are dropped at query time — they cannot be referenced in filters or breakdowns either."
+        },
+        "hashProperties": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string" },
+          "description": "Event property keys SHA-256 hashed for pseudonymous linkage. The raw value is replaced with a deterministic hash before reaching the LLM. Use for quasi-identifiers that need to be linkable across events but must not be readable (e.g. 'user_email_hash', 'device_fingerprint'). Hashed values can be used in GROUP BY but not in human-readable reports."
+        }
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

@@ -2,9 +2,9 @@
 apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: looply-onboarding-funnel
-  displayName: Looply Onboarding Funnel
-  description: Tracks conversion through Looply's core onboarding funnel and identifies the biggest drop-off step.
+  name: onboarding-funnel
+  displayName: Onboarding Funnel Drop-off
+  description: Tracks conversion through the 4-step onboarding funnel and identifies the biggest drop-off step.
 
 spec:
   type: LLM
@@ -22,23 +22,29 @@ spec:
     entity: person_id
     conversionWindow: 48h
     steps:
-      - event: signup_completed
-        label: Completed Signup
-      - event: habit_created
-        label: Created First Habit
-      - event: habit_completed
-        label: Completed First Habit
+      - event: signup_started
+        label: Started Signup
+      - event: email_verified
+        label: Verified Email
+      - event: profile_completed
+        label: Completed Profile
+        filters:
+          - property: $current_url
+            operator: contains
+            value: /onboarding
+      - event: first_action_taken
+        label: Took First Action
     breakdowns:
-      - property: signup_source
       - property: plan
+      - property: signup_source
 
   llm:
     promptTemplate: |
-      Analyze Looply's onboarding funnel for the past 7 days.
+      Analyze this onboarding funnel data for the past 7 days.
       Funnel steps: {{stepsSummary}}
       Biggest drop-off: {{worstStep}} ({{worstStepLoss}} users lost, {{worstStepCvr}} conversion).
       Breakdown by plan: {{breakdownSummary}}
-      In 2-3 sentences: identify the most critical drop-off, suggest one hypothesis for why it occurs, and recommend one experiment to improve it.
+      In 2-3 sentences: identify the most critical drop-off, suggest one hypothesis for why it occurs, and recommend one experiment.
     maxOutputTokens: 400
     guardrails:
       citeSources: true

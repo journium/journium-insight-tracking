@@ -1,6 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://journium.app/schemas/journium-insight-tracker.base.schema.json",
+    "description": "Base schema shared by all InsightTracker versions. Defines the top-level envelope (apiVersion, kind, metadata, spec). Version-specific schemas extend this via allOf + $ref.",
     "type": "object",
     "required": [
         "apiVersion",
@@ -11,16 +12,16 @@
     "properties": {
         "apiVersion": {
             "type": "string",
-            "description": "The version of the Journium InsightTracker schema."
+            "description": "Schema version discriminant. Use 'journium.app/v0Beta' for all new trackers. The value must match exactly — the root schema uses this field to select the correct version-specific validator."
         },
         "kind": {
             "type": "string",
-            "description": "The type of the tracker. Must be 'InsightTracker' for Journium InsightTrackers.",
+            "description": "Resource kind. Always 'InsightTracker'. Do not use the analysis type name here.",
             "const": "InsightTracker"
         },
         "metadata": {
             "type": "object",
-            "description": "Metadata for the tracker. Must contain a name and displayName.",
+            "description": "Tracker identity and display information. These fields appear in the Journium UI and in LLM prompt context.",
             "required": [
                 "name",
                 "displayName"
@@ -32,24 +33,24 @@
                     "minLength": 3,
                     "maxLength": 63,
                     "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
-                    "description": "Unique identifier for this tracker. Must be unique within the application. Use kebab-case (e.g., 'signup-to-first-habit'). Trackers may reference other trackers by name."
+                    "description": "Unique machine-readable identifier for this tracker within the application. Must be kebab-case lowercase alphanumeric (e.g. 'weekly-checkout-funnel', 'trial-to-paid-conversion', 'd30-retention'). Used in API calls and as a stable reference key — changing it creates a new tracker."
                 },
                 "displayName": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 120,
-                    "description": "Human-friendly name shown in the Journium UI (e.g., 'Signup to First Habit Dropoff')."
+                    "description": "Human-friendly title shown in the Journium UI and included in LLM prompt context (e.g. 'Weekly Checkout Funnel', 'D30 Retention by Cohort'). Should clearly communicate what the tracker measures."
                 },
                 "description": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
-                    "description": "Description of the tracker. This is used to describe the tracker in the Journium UI."
+                    "description": "One or two sentences explaining what this tracker measures and why it matters (e.g. 'Tracks drop-off through the checkout funnel to identify the step with the highest friction each week.'). Shown in the UI and passed to the LLM as context."
                 }
             }
         },
         "spec": {
-            "description": "Tracker specification. Defined in version-specific schemas."
+            "description": "Full tracker specification including trigger, data window, analysis query, LLM config, and privacy settings. Defined in the version-specific schema (spec structure varies by apiVersion)."
         }
     }
 }

@@ -2,9 +2,9 @@
 apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: looply-habit-retention
-  displayName: Looply Weekly Habit Retention
-  description: Measures weekly habit completion retention cohorts to understand long-term user engagement.
+  name: weekly-cohort-retention
+  displayName: Weekly Cohort Retention (D1/D7/D30)
+  description: Measures day-1, day-7, and day-30 retention for weekly signup cohorts.
 
 spec:
   type: LLM
@@ -21,7 +21,7 @@ spec:
     type: retention
     entity: person_id
     cohortEvent: signup_completed
-    retentionEvent: habit_completed
+    retentionEvent: session_started
     cohortPeriod: week
     intervals:
       - 1
@@ -31,18 +31,13 @@ spec:
 
   llm:
     promptTemplate: |
-      Looply habit retention cohort data (last 90 days, {{cohortCount}} weekly cohorts):
+      Retention cohort data (last 90 days, {{cohortCount}} weekly cohorts):
       {{cohortTable}}
       Average retention: D1={{avgD1}}%, D7={{avgD7}}%, D30={{avgD30}}%.
       Most recent cohort ({{latestCohortWeek}}): D1={{latestD1}}%, D7={{latestD7}}%.
       Trend: {{retentionTrend}}.
-      Summarize retention health and call out any cohort that performed significantly better or worse. Suggest one hypothesis about what drives long-term habit completion.
+      Summarize retention health and call out any cohort that performed significantly better or worse. Suggest one hypothesis.
     maxOutputTokens: 450
     guardrails:
       citeSources: true
       noHallucination: true
-
-  privacy:
-    excludeProperties:
-      - email
-      - name

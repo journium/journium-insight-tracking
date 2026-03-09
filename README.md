@@ -10,7 +10,7 @@ Journium InsightTrackers enable automated analysis and insight generation from y
 
 An InsightTracker is a declarative configuration that defines:
 - **What events to track** - Specify which application events to monitor
-- **When to analyze** - Configure automatic or manual trigger schedules  
+- **When to analyze** - Configure automatic or manual trigger schedules
 - **How to generate insights** - Define analysis logic using LLM prompts or custom code
 
 ## Repository Structure
@@ -20,10 +20,12 @@ An InsightTracker is a declarative configuration that defines:
 ├── schemas/                                          # JSON Schema definitions
 │   ├── journium-insight-tracker.schema.json          # Main schema with version routing
 │   ├── journium-insight-tracker.base.schema.json     # Shared base definitions
-│   └── journium-insight-tracker.v0Alpha.schema.json  # v0Alpha API version schema
+│   ├── journium-insight-tracker.v0Alpha.schema.json  # v0Alpha API version schema
+│   └── journium-insight-tracker.v0Beta.schema.json   # v0Beta API version schema (current)
 └── trackers/
     └── examples/              # Example tracker configurations
-        └── looply/            # Sample trackers for the Looply sample app
+        ├── looply/            # Sample trackers for the Looply sample app
+        └── v0beta/            # v0Beta example trackers (one per analysis type)
 ```
 
 ## Schema Versions
@@ -34,31 +36,44 @@ The schemas in this repository are published at `https://journium.app/schemas/`.
 
 | API Version | Status | Schema URL |
 |------------|--------|------------|
-| `journium.app/v0Alpha` | Alpha | [v0Alpha Schema](https://journium.app/schemas/journium-insight-tracker.v0Alpha.schema.json) |
+| `journium.app/v0Beta` | **Beta (current)** | [v0Beta Schema](https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json) |
 
 ## Quick Start
 
-### Basic Tracker Example
+### v0Beta Tracker Example
 
 ```yaml
-apiVersion: journium.app/v0Alpha
+apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: signup-to-first-habit
-  displayName: Signup to First Habit Dropoff
-  description: Track user progression from signup to habit creation
+  name: onboarding-funnel
+  displayName: Onboarding Funnel Drop-off
+  description: Tracks conversion through the onboarding funnel and identifies the biggest drop-off step.
 spec:
   type: LLM
-  llmPrompt: |
-    Analyze user signup to first habit creation patterns.
-    Identify dropoff points and generate actionable insights.
   trigger:
     mode: automatic
     schedule: daily
-  data:
-    events: 
-      - signup_completed
-      - habit_created
+  window:
+    period: last_7d
+    granularity: day
+  analysis:
+    type: funnel
+    entity: person_id
+    conversionWindow: 48h
+    steps:
+      - event: signup_started
+        label: Started Signup
+      - event: email_verified
+        label: Verified Email
+      - event: first_action_taken
+        label: Took First Action
+  llm:
+    promptTemplate: |
+      Funnel steps: {{stepsSummary}}
+      Biggest drop-off: {{worstStep}} ({{worstStepLoss}} users lost).
+      In 2 sentences: identify the critical drop-off and suggest one experiment.
+    maxOutputTokens: 400
 ```
 
 ## Schema Validation
@@ -86,10 +101,26 @@ jsonschema -i your-tracker.yml schemas/journium-insight-tracker.schema.json
 
 ## More Examples
 
-Explore the `trackers/examples/` directory for production-ready tracker configurations:
+Explore the `trackers/examples/` directory for production-ready tracker configurations.
 
-- [Signup to First Habit Tracker](trackers/examples/looply/journium-tracker.yml)
-- Additional examples coming soon
+### v0Beta examples
+
+| File | Analysis Type | Description |
+|------|--------------|-------------|
+| [onboarding-funnel.yml](trackers/examples/v0beta/onboarding-funnel.yml) | `funnel` | 4-step onboarding funnel |
+| [weekly-cohort-retention.yml](trackers/examples/v0beta/weekly-cohort-retention.yml) | `retention` | Weekly cohort D1/D7/D30 retention |
+| [churn-risk-signal.yml](trackers/examples/v0beta/churn-risk-signal.yml) | `churn` | 14-day inactivity churn-risk signal |
+| [activation-aha-moment.yml](trackers/examples/v0beta/activation-aha-moment.yml) | `activation` | Signup-to-aha-moment activation rate |
+| [signup-anomaly-detector.yml](trackers/examples/v0beta/signup-anomaly-detector.yml) | `anomaly` | Daily signup anomaly detection |
+| [ai-assistant-adoption.yml](trackers/examples/v0beta/ai-assistant-adoption.yml) | `featureAdoption` | Feature adoption by plan and region |
+
+### Looply examples (sample app)
+
+| File | Analysis Type | Description |
+|------|--------------|-------------|
+| [looply/journium-tracker.yml](trackers/examples/looply/journium-tracker.yml) | `funnel` | Onboarding funnel: signup → first habit |
+| [looply/my-journium-tracker-v1.yml](trackers/examples/looply/my-journium-tracker-v1.yml) | `activation` | Signup-to-first-habit activation rate |
+| [looply/my-journium-tracker-v2.yml](trackers/examples/looply/my-journium-tracker-v2.yml) | `retention` | Weekly habit retention cohorts |
 
 ## Contributing
 
@@ -104,7 +135,3 @@ See [LICENSE](LICENSE) file for details.
 For questions or issues:
 - Documentation: [https://journium.app/docs](https://journium.app/docs)
 - Issues: [GitHub Issues](https://github.com/journium/journium-insight-tracking/issues)
-
----
-
-**Note:** Journium InsightTrackers are currently in Alpha. The schema and features are subject to change.

@@ -2,15 +2,16 @@
 apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: looply-activation-rate
-  displayName: Looply Signup-to-First-Habit Activation
-  description: Measures how many new Looply users reach the aha moment (habit_created) within 72 hours of signup.
+  name: activation-aha-moment
+  displayName: Activation — Signup to Aha Moment
+  description: Measures how many new users reach the "aha moment" (habit_created) within 72 hours of signup.
 
 spec:
   type: LLM
 
   trigger:
-    mode: manual
+    mode: automatic
+    schedule: daily
 
   window:
     period: last_14d
@@ -29,11 +30,11 @@ spec:
 
   llm:
     promptTemplate: |
-      Looply activation data (last 14 days):
+      Activation data (last 14 days):
       New signups: {{newSignups}}
-      Activated (created first habit within 72h): {{activatedCount}} ({{activationRate}}%)
+      Activated (reached aha within 72h): {{activatedCount}} ({{activationRate}}%)
       vs. previous 14-day period: {{prevActivationRate}}% ({{activationDelta}} pp change)
-      Median time to first habit: {{medianTimeToAha}}
+      Median time to aha: {{medianTimeToAha}}
       Best activation source: {{bestSource}} ({{bestSourceRate}}%)
       In 2-3 sentences: assess activation health, note the trend, and highlight the highest-leverage acquisition channel.
     maxOutputTokens: 400
