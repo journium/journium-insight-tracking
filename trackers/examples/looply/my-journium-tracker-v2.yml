@@ -1,27 +1,48 @@
-apiVersion: journium.app/v0Alpha
+# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.schema.json
+apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: signup-to-first-habit
-  displayName: Signup to First Habit Dropoff
-  description: This tracker generates an insight based on the signup to first habit dropoff event.
-spec:
-  # The type of tracker.
-  type: LLM
-  # The LLM prompt used to generate the insight.
-  llmPrompt: |
-    You are a helpful assistant that generates insights based on the provided data.
-    The data is a list of events that have occurred in the system.
-    Generate an insight based on the data.
-    The insight should be a single sentence that summarizes the data.
-    The insight should be in the following format:
-    - **[Insight Title]**: [Insight Description]
+  name: looply-habit-retention
+  displayName: Looply Weekly Habit Retention
+  description: Measures weekly habit completion retention cohorts to understand long-term user engagement.
 
-  # The trigger controls when the tracker runs.
+spec:
+  type: LLM
+
   trigger:
     mode: automatic
-    schedule: daily
-  # The data controls what event data is available to the tracker.
-  data:
-      events: 
-        - signup_completed
-        - habit_created
+    schedule: weekly
+
+  window:
+    period: last_90d
+    granularity: week
+
+  analysis:
+    type: retention
+    entity: person_id
+    cohortEvent: signup_completed
+    retentionEvent: habit_completed
+    cohortPeriod: week
+    intervals:
+      - 1
+      - 7
+      - 30
+    minCohortSize: 10
+
+  llm:
+    promptTemplate: |
+      Looply habit retention cohort data (last 90 days, {{cohortCount}} weekly cohorts):
+      {{cohortTable}}
+      Average retention: D1={{avgD1}}%, D7={{avgD7}}%, D30={{avgD30}}%.
+      Most recent cohort ({{latestCohortWeek}}): D1={{latestD1}}%, D7={{latestD7}}%.
+      Trend: {{retentionTrend}}.
+      Summarize retention health and call out any cohort that performed significantly better or worse. Suggest one hypothesis about what drives long-term habit completion.
+    maxOutputTokens: 450
+    guardrails:
+      citeSources: true
+      noHallucination: true
+
+  privacy:
+    excludeProperties:
+      - email
+      - name

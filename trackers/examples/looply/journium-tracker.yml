@@ -1,27 +1,51 @@
-apiVersion: journium.app/v0Alpha
+# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.schema.json
+apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: signup-to-first-habit
-  displayName: Signup to First Habit Dropoff
-  description: This tracker generates an insight based on the signup to first habit dropoff event.
-spec:
-  # The type of tracker.
-  type: LLM
-  # The LLM prompt used to generate the insight.
-  llmPrompt: |
-    You are a helpful assistant that generates insights based on the provided data.
-    The data is a list of events that have occurred in the system.
-    Generate an insight based on the data.
-    The insight should be a single sentence that summarizes the data.
-    The insight should be in the following format:
-    - **[Insight Title]**: [Insight Description]
+  name: looply-onboarding-funnel
+  displayName: Looply Onboarding Funnel
+  description: Tracks conversion through Looply's core onboarding funnel and identifies the biggest drop-off step.
 
-  # The trigger controls when the tracker runs.
+spec:
+  type: LLM
+
   trigger:
     mode: automatic
     schedule: daily
-  # The data controls what event data is available to the tracker.
-  data:
-      events: 
-        - signup_completed
-        - habit_created
+
+  window:
+    period: last_7d
+    granularity: day
+
+  analysis:
+    type: funnel
+    entity: person_id
+    conversionWindow: 48h
+    steps:
+      - event: signup_completed
+        label: Completed Signup
+      - event: habit_created
+        label: Created First Habit
+      - event: habit_completed
+        label: Completed First Habit
+    breakdowns:
+      - property: signup_source
+      - property: plan
+
+  llm:
+    promptTemplate: |
+      Analyze Looply's onboarding funnel for the past 7 days.
+      Funnel steps: {{stepsSummary}}
+      Biggest drop-off: {{worstStep}} ({{worstStepLoss}} users lost, {{worstStepCvr}} conversion).
+      Breakdown by plan: {{breakdownSummary}}
+      In 2-3 sentences: identify the most critical drop-off, suggest one hypothesis for why it occurs, and recommend one experiment to improve it.
+    maxOutputTokens: 400
+    guardrails:
+      citeSources: true
+      noHallucination: true
+
+  privacy:
+    excludeProperties:
+      - email
+      - phone
+      - full_name

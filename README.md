@@ -10,7 +10,7 @@ Journium InsightTrackers enable automated analysis and insight generation from y
 
 An InsightTracker is a declarative configuration that defines:
 - **What events to track** - Specify which application events to monitor
-- **When to analyze** - Configure automatic or manual trigger schedules  
+- **When to analyze** - Configure automatic or manual trigger schedules
 - **How to generate insights** - Define analysis logic using LLM prompts or custom code
 
 ## Repository Structure
@@ -20,7 +20,7 @@ An InsightTracker is a declarative configuration that defines:
 ├── schemas/                                          # JSON Schema definitions
 │   ├── journium-insight-tracker.schema.json          # Main schema with version routing
 │   ├── journium-insight-tracker.base.schema.json     # Shared base definitions
-│   ├── journium-insight-tracker.v0Alpha.schema.json  # v0Alpha API version schema (deprecated)
+│   ├── journium-insight-tracker.v0Alpha.schema.json  # v0Alpha API version schema
 │   └── journium-insight-tracker.v0Beta.schema.json   # v0Beta API version schema (current)
 └── trackers/
     └── examples/              # Example tracker configurations
@@ -37,11 +37,6 @@ The schemas in this repository are published at `https://journium.app/schemas/`.
 | API Version | Status | Schema URL |
 |------------|--------|------------|
 | `journium.app/v0Beta` | **Beta (current)** | [v0Beta Schema](https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Beta.schema.json) |
-| `journium.app/v0Alpha` | **Deprecated** — migrate to v0Beta | [v0Alpha Schema](https://raw.githubusercontent.com/journium/journium-insight-tracking/refs/heads/feat/insight-tracker-v0beta/schemas/journium-insight-tracker.v0Alpha.schema.json) |
-
-> **v0Alpha is deprecated.** New trackers should use `apiVersion: journium.app/v0Beta`.
-> Existing v0Alpha trackers continue to work but new creation will be blocked in a future release.
-> See [Migration Guide](#migration-from-v0alpha-to-v0beta) below.
 
 ## Quick Start
 
@@ -112,29 +107,20 @@ Explore the `trackers/examples/` directory for production-ready tracker configur
 
 | File | Analysis Type | Description |
 |------|--------------|-------------|
-| [onboarding-funnel.yml](trackers/examples/v0beta/onboarding-funnel.yml) | `funnel` | 4-step onboarding funnel with drop-off analysis |
+| [onboarding-funnel.yml](trackers/examples/v0beta/onboarding-funnel.yml) | `funnel` | 4-step onboarding funnel |
 | [weekly-cohort-retention.yml](trackers/examples/v0beta/weekly-cohort-retention.yml) | `retention` | Weekly cohort D1/D7/D30 retention |
 | [churn-risk-signal.yml](trackers/examples/v0beta/churn-risk-signal.yml) | `churn` | 14-day inactivity churn-risk signal |
 | [activation-aha-moment.yml](trackers/examples/v0beta/activation-aha-moment.yml) | `activation` | Signup-to-aha-moment activation rate |
-| [signup-anomaly-detector.yml](trackers/examples/v0beta/signup-anomaly-detector.yml) | `anomaly` | Daily signup anomaly detection (2σ rolling baseline) |
+| [signup-anomaly-detector.yml](trackers/examples/v0beta/signup-anomaly-detector.yml) | `anomaly` | Daily signup anomaly detection |
 | [ai-assistant-adoption.yml](trackers/examples/v0beta/ai-assistant-adoption.yml) | `featureAdoption` | Feature adoption by plan and region |
-| [signup-to-first-habit-migrated.yml](trackers/examples/v0beta/signup-to-first-habit-migrated.yml) | `custom` | v0Alpha migration example (discouraged for new trackers) |
 
-### v0Alpha examples (deprecated)
+### Looply examples (sample app)
 
-- [Signup to First Habit Tracker](trackers/examples/looply/journium-tracker.yml)
-
-## Migration from v0Alpha to v0Beta
-
-v0Beta replaces the `data` + `llmPrompt` fields with a structured `analysis`, `window`, and `llm` block. Key changes:
-
-| v0Alpha | v0Beta equivalent |
-|---------|-------------------|
-| `spec.data.events` | `spec.analysis.type` + typed fields |
-| `spec.data.maxEvents` | `spec.window.period` (time-scoped) |
-| `spec.llmPrompt` | `spec.llm.promptTemplate` (with `{{variables}}`) |
-
-Use the Journium migration API (`POST /trackers/:id/migrate`) to auto-migrate an existing v0Alpha tracker to v0Beta YAML for review.
+| File | Analysis Type | Description |
+|------|--------------|-------------|
+| [looply/journium-tracker.yml](trackers/examples/looply/journium-tracker.yml) | `funnel` | Onboarding funnel: signup → first habit |
+| [looply/my-journium-tracker-v1.yml](trackers/examples/looply/my-journium-tracker-v1.yml) | `activation` | Signup-to-first-habit activation rate |
+| [looply/my-journium-tracker-v2.yml](trackers/examples/looply/my-journium-tracker-v2.yml) | `retention` | Weekly habit retention cohorts |
 
 ## Contributing
 
@@ -149,7 +135,3 @@ See [LICENSE](LICENSE) file for details.
 For questions or issues:
 - Documentation: [https://journium.app/docs](https://journium.app/docs)
 - Issues: [GitHub Issues](https://github.com/journium/journium-insight-tracking/issues)
-
----
-
-**Note:** `journium.app/v0Beta` is the current recommended API version. `journium.app/v0Alpha` is deprecated and will be blocked for new tracker creation in a future release.

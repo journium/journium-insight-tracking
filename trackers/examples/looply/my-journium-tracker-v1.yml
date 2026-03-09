@@ -1,26 +1,44 @@
-apiVersion: journium.app/v0Alpha
+# yaml-language-server: $schema=https://journium.app/schemas/journium-insight-tracker.schema.json
+apiVersion: journium.app/v0Beta
 kind: InsightTracker
 metadata:
-  name: signup-to-first-habit
-  displayName: Signup to First Habit Dropoff
-  description: This tracker generates an insight based on the signup to first habit dropoff event.
-spec:
-  # The type of tracker.
-  type: LLM
-  # The LLM prompt used to generate the insight.
-  llmPrompt: |
-    You are a helpful assistant that generates insights based on the provided data.
-    The data is a list of events that have occurred in the system.
-    Generate an insight based on the data.
-    The insight should be a single sentence that summarizes the data.
-    The insight should be in the following format:
-    - **[Insight Title]**: [Insight Description]
+  name: looply-activation-rate
+  displayName: Looply Signup-to-First-Habit Activation
+  description: Measures how many new Looply users reach the aha moment (habit_created) within 72 hours of signup.
 
-  # The trigger controls when the tracker runs.
+spec:
+  type: LLM
+
   trigger:
     mode: manual
-  # The data controls what event data is available to the tracker.
-  data:
-      events: 
-        - signup_completed
-        - habit_created
+
+  window:
+    period: last_14d
+    granularity: day
+
+  analysis:
+    type: activation
+    entity: person_id
+    startEvent: signup_completed
+    ahaEvent: habit_created
+    activationWindow: 72h
+    compareWindow: previous_period
+    breakdowns:
+      - property: signup_source
+      - property: plan
+
+  llm:
+    promptTemplate: |
+      Looply activation data (last 14 days):
+      New signups: {{newSignups}}
+      Activated (created first habit within 72h): {{activatedCount}} ({{activationRate}}%)
+      vs. previous 14-day period: {{prevActivationRate}}% ({{activationDelta}} pp change)
+      Median time to first habit: {{medianTimeToAha}}
+      Best activation source: {{bestSource}} ({{bestSourceRate}}%)
+      In 2-3 sentences: assess activation health, note the trend, and highlight the highest-leverage acquisition channel.
+    maxOutputTokens: 400
+
+  privacy:
+    excludeProperties:
+      - email
+      - name
