@@ -1,0 +1,45 @@
+name: Validate Trackers
+
+on:
+  push:
+    paths:
+      - 'trackers/**'
+      - 'schemas/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'trackers/**'
+      - 'schemas/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  validate:
+    name: Validate tracker schemas
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ajv-cli and ajv-formats
+        run: pnpm add -g ajv-cli ajv-formats
+
+      - name: Validate example trackers
+        run: |
+          ajv validate \
+            --spec=draft2020 \
+            -c ajv-formats \
+            -s schemas/journium-insight-tracker.schema.json \
+            -r "schemas/journium-insight-tracker.v0Beta.schema.json" \
+            -r "schemas/journium-insight-tracker.v0Alpha.schema.json" \
+            -r "schemas/journium-insight-tracker.base.schema.json" \
+            -d "trackers/examples/v0beta/*.yml" \
+            -d "trackers/examples/looply/*.yml"
